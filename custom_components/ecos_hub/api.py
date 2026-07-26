@@ -175,12 +175,28 @@ class EcosHubClient:
         The endpoint answers with ``{"columns": [...], "rows": [[...], ...]}``
         ordered oldest-first, so the newest sample is the final row. Returns an
         empty dict when the device has not reported in the requested window.
+
+        Never request the ``time`` column: it is returned automatically and
+        asking for it fails with "column time not valid". Models differ in which
+        fields they expose, so if any requested column is rejected we fall back
+        to asking for everything and let the entities pick what they need.
         """
-        payload = await self._request(
-            "POST",
-            f"{API_PREFIX}/devices/{device_sn}/metrics",
-            json_body={"start": start_ms, "end": end_ms, "columns": columns},
-        )
+        body: dict[str, Any] = {"start": start_ms, "end": end_ms, "columns": columns}
+        path = f"{API_PREFIX}/devices/{device_sn}/metrics"
+
+        try:
+            payload = await self._request("POST", path, json_body=body)
+        except EcosHubApiError as err:
+            if "not valid" not in err.message.lower():
+                raise
+            _LOGGER.warning(
+                "The API rejected a requested metrics column (%s); "
+                "falling back to fetching all columns",
+                err.message,
+            )
+            payload = await self._request(
+                "POST", path, json_body={"start": start_ms, "end": end_ms}
+            )
 
         data = payload.get("data") or {}
         rows = data.get("rows") or []
