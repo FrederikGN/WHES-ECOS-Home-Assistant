@@ -1,0 +1,82 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "WHES ECOS Hub",
+        "description": "Indtast den AccessKey og AccessKeySecret, du har fået af WHES. Det er Open API-oplysningerne, ikke dit login til ECOS-appen.",
+        "data": {
+          "access_key": "AccessKey",
+          "access_secret": "AccessKeySecret",
+          "region": "Region"
+        }
+      },
+      "device": {
+        "title": "Vælg enhed",
+        "data": {
+          "device_sn": "Enhed"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunne ikke nå ECOS Hub-API'et. Tjek region og netværk.",
+      "invalid_auth": "API'et afviste signaturen. Tjek AccessKey og AccessKeySecret.",
+      "no_devices": "Der er ingen enheder tilknyttet disse oplysninger."
+    },
+    "abort": {
+      "already_configured": "Denne enhed er allerede sat op."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "solar_power": { "name": "Solproduktion" },
+      "pv1_power": { "name": "PV-streng 1 effekt" },
+      "pv2_power": { "name": "PV-streng 2 effekt" },
+      "inverter_power": { "name": "Inverter-effekt" },
+      "grid_power": { "name": "Neteffekt" },
+      "battery_power": { "name": "Batterieffekt" },
+      "battery_charge_power": { "name": "Batteriopladningseffekt" },
+      "battery_discharge_power": { "name": "Batteriafladningseffekt" },
+      "backup_power": { "name": "Nødstrøm (EPS) effekt" },
+      "battery_soc": { "name": "Batteriniveau" },
+      "battery_soh": { "name": "Batterisundhed" },
+      "battery_available_energy": { "name": "Tilgængelig batterienergi" },
+      "battery_voltage": { "name": "Batterispænding" },
+      "battery_current": { "name": "Batteristrøm" },
+      "energy_from_grid": { "name": "Energi købt fra nettet" },
+      "energy_to_grid": { "name": "Energi solgt til nettet" },
+      "energy_battery_charged": { "name": "Energi opladet i batteri" },
+      "energy_battery_discharged": { "name": "Energi afladet fra batteri" },
+      "energy_backup": { "name": "Leveret nødstrøm" },
+      "grid_voltage": { "name": "Netspænding" },
+      "grid_current": { "name": "Netstrøm" },
+      "grid_frequency": { "name": "Netfrekvens" },
+      "inverter_temperature": { "name": "Invertertemperatur" },
+      "run_mode": {
+        "name": "Driftstilstand",
+        "state": {
+          "waiting_for_grid": "Venter på nettet",
+          "on_grid": "På nettet",
+          "off_grid": "Ø-drift",
+          "fault": "Fejl",
+          "reserved": "Reserveret",
+          "self_check": "Selvtest"
+        }
+      },
+      "device_state": {
+        "name": "Enhedsstatus",
+        "state": {
+          "unknown": "Ukendt",
+          "disabled": "Deaktiveret",
+          "not_activated": "Ikke aktiveret",
+          "offline": "Offline",
+          "standby": "Standby",
+          "on_grid": "På nettet",
+          "eps": "Nødstrøm (EPS)",
+          "fault": "Fejl",
+          "reserved": "Reserveret",
+          "self_check": "Selvtest"
+        }
+      }
+    }
+  }
+}
