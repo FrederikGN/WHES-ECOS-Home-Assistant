@@ -67,8 +67,10 @@ RUN_MODE: Final = {
 
 # Columns requested from the metrics endpoint. Restricted to what this hardware
 # actually reports, verified against a live TIA103.
+#
+# "time" must NOT be listed here: the API returns the timestamp automatically
+# and rejects the request with "column time not valid" if you ask for it.
 METRIC_COLUMNS: Final = [
-    "time",
     "ac_f",
     "ac_i",
     "ac_p",
