@@ -11,6 +11,7 @@ CONF_ACCESS_KEY: Final = "access_key"
 CONF_ACCESS_SECRET: Final = "access_secret"
 CONF_HOST: Final = "host"
 CONF_DEVICE_SN: Final = "device_sn"
+CONF_SCAN_INTERVAL: Final = "scan_interval"
 
 # Regional API gateways. The docs never state these; EU was verified against a
 # live account, the others follow the same naming convention as the ECOS app
@@ -31,13 +32,20 @@ DEFAULT_HOST: Final = HOST_EU
 # gateway requires it.
 API_PREFIX: Final = "/open-api/ecos-hub/v1"
 
-# The hardware samples roughly every 5 minutes regardless of the sample_by
-# parameter, so polling faster only burns API quota.
-DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=1)
+# The device uploads a fresh sample roughly every 10 seconds, so that is the
+# useful floor -- polling faster just re-fetches the same row.
+#
+# Do NOT send "sample_by" with metrics requests: it downsamples rather than
+# refines, and asking for "1m" was observed to return one row per 5 minutes.
+DEFAULT_SCAN_INTERVAL_SECONDS: Final = 30
+MIN_SCAN_INTERVAL_SECONDS: Final = 10
+MAX_SCAN_INTERVAL_SECONDS: Final = 600
+DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
 
-# How far back to ask for metrics. Generous enough to always catch at least one
-# sample even if the device missed a few uploads.
-METRICS_LOOKBACK: Final = timedelta(minutes=30)
+# How far back to ask for metrics. Long enough to still find a sample if the
+# device dropped offline briefly, short enough to keep responses small now that
+# rows arrive every 10 seconds.
+METRICS_LOOKBACK: Final = timedelta(minutes=10)
 
 MANUFACTURER: Final = "WEIHENG"
 
@@ -64,6 +72,68 @@ RUN_MODE: Final = {
     4: "reserved",
     5: "self_check",
 }
+
+# --- VPP control -----------------------------------------------------------
+#
+# PUT /open-api/ecos-hub/v1/devices/{sn}/vpp/control-mode
+#
+# CAUTION: bat_power uses the OPPOSITE sign convention to the bat_p metric.
+# Here a negative value charges the battery and a positive value discharges it;
+# in the metrics feed bat_p is positive while charging. Mixing these up sends
+# the battery in the wrong direction.
+MODE_SELF_CONSUMPTION: Final = "SelfConsumption"
+MODE_DIRECT_CHARGE: Final = "DirectCharge"
+MODE_DIRECT_DISCHARGE: Final = "DirectDischarge"
+MODE_CHARGE_ONLY: Final = "ChargeOnly"
+MODE_DISCHARGE_TO_LOAD_ONLY: Final = "DischargeToLoadOnly"
+MODE_INVERTER_OUTPUTS: Final = "InverterOutputs"
+MODE_INVERTER_OPERATES: Final = "InverterOperates"
+
+# Parameters the API requires for each mode, per the ECOS Hub documentation.
+MODE_REQUIRED_PARAMS: Final[dict[str, tuple[str, ...]]] = {
+    MODE_SELF_CONSUMPTION: ("max_feedin_limit", "bat_cap_min"),
+    MODE_DIRECT_CHARGE: ("bat_power", "timeout", "bat_cap_min"),
+    MODE_DIRECT_DISCHARGE: ("bat_power", "ppv_limit", "timeout", "bat_cap_min"),
+    MODE_CHARGE_ONLY: ("max_feedin_limit", "timeout", "bat_cap_min"),
+    MODE_DISCHARGE_TO_LOAD_ONLY: ("max_feedin_limit", "timeout", "bat_cap_min"),
+    MODE_INVERTER_OUTPUTS: (
+        "bat_power",
+        "bat_power_inv_limit",
+        "timeout",
+        "bat_cap_min",
+    ),
+    MODE_INVERTER_OPERATES: ("bat_power", "timeout", "bat_cap_min"),
+}
+
+CONTROL_MODES: Final = tuple(MODE_REQUIRED_PARAMS)
+
+# The device reverts to normal operation once the timeout expires, which makes
+# it a dead-man's switch: a crashed automation cannot leave the system stuck in
+# a forced mode.
+DEFAULT_CONTROL_TIMEOUT: Final = 900  # 15 minutes
+MIN_CONTROL_TIMEOUT: Final = 60
+MAX_CONTROL_TIMEOUT: Final = 86400
+
+DEFAULT_MIN_BATTERY_CAPACITY: Final = 10
+DEFAULT_MAX_FEEDIN_LIMIT: Final = 100
+
+# Battery power limits. The documentation quotes different ranges per mode
+# (-5000~0 for DirectCharge, 0~6000 for InverterOutputs), so we allow the
+# widest documented span and let the device clamp what it cannot do.
+MIN_BATTERY_POWER: Final = -6000
+MAX_BATTERY_POWER: Final = 6000
+DEFAULT_BATTERY_POWER: Final = 0
+DEFAULT_PV_POWER_LIMIT: Final = 6000
+
+SERVICE_SET_CONTROL_MODE: Final = "set_control_mode"
+
+ATTR_MODE: Final = "mode"
+ATTR_BAT_POWER: Final = "bat_power"
+ATTR_MAX_FEEDIN_LIMIT: Final = "max_feedin_limit"
+ATTR_PPV_LIMIT: Final = "ppv_limit"
+ATTR_BAT_POWER_INV_LIMIT: Final = "bat_power_inv_limit"
+ATTR_TIMEOUT: Final = "timeout"
+ATTR_BAT_CAP_MIN: Final = "bat_cap_min"
 
 # Columns requested from the metrics endpoint. Restricted to what this hardware
 # actually reports, verified against a live TIA103.
