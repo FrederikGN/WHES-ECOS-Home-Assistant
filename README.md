@@ -5,7 +5,8 @@ Home Assistant integration for solar and battery systems sold under the
 Open API. Developed and verified against an **Agave TH TIA103** with a 10 kWh
 battery.
 
-Read-only. Charge scheduling is not implemented — use the ECOS app for that.
+Sensors work out of the box. Control is implemented but requires WHES to enable
+VPP on your account — see [Control](#control) below.
 
 ## What you get
 
@@ -49,6 +50,83 @@ derived. Add a [Riemann sum integration
 helper](https://www.home-assistant.io/integrations/integration/) over the
 *Solar power* sensor and use that as your solar source.
 
+## Control
+
+> **Requires WHES to enable VPP control on your account.** Until they do, every
+> write returns an upstream 403 and the control entities show as unavailable.
+> The sensors are unaffected.
+>
+> Ask them at service@whes.com:
+>
+> *"Please enable VPP control mode for our ECOS Hub Open API AccessKey `<key>`
+> and device `<sn>`. `PUT /open-api/ecos-hub/v1/devices/{sn}/vpp/control-mode`
+> currently returns 403 and the device reports `vpp_mode` 0."*
+>
+> The `POST /vpp/bind-device` endpoint does not work around this — it answers
+> `4000 Invalid data` when the account has no VPP user to bind to.
+
+### ⚠️ The battery power sign is inverted
+
+In the control API, **negative charges** the battery and **positive discharges**
+it. In the sensor feed, `bat_p` is **positive while charging**. They are
+opposite. Getting this wrong sends the battery the other way.
+
+### Entities
+
+A **Control mode** dropdown applies a mode immediately, using the staged values
+from these number entities:
+
+| Entity | Sent as |
+| --- | --- |
+| Battery power setpoint | `bat_power` (negative = charge) |
+| Minimum battery level | `bat_cap_min` |
+| Maximum feed-in limit | `max_feedin_limit` |
+| PV power limit | `ppv_limit` |
+| Control timeout | `timeout` |
+
+Changing a number does not talk to the inverter on its own — it is stored and
+used the next time a mode is applied, so dragging a slider does not fire a dozen
+commands at the hardware.
+
+The API cannot read the active mode back, so the dropdown reflects the last mode
+*this integration* applied. It shows unknown after a restart and will not notice
+changes made from the ECOS app.
+
+### Service
+
+```yaml
+action: ecos_hub.set_control_mode
+target:
+  device_id: <your inverter>
+data:
+  mode: DirectCharge
+  bat_power: -3000      # negative = charge at 3 kW
+  bat_cap_min: 20
+  timeout: 3600
+```
+
+Anything omitted falls back to the corresponding number entity. Each mode
+requires a different set of parameters and incomplete calls are rejected locally
+before anything is sent:
+
+| Mode | Required |
+| --- | --- |
+| `SelfConsumption` | `max_feedin_limit`, `bat_cap_min` |
+| `DirectCharge` | `bat_power`, `timeout`, `bat_cap_min` |
+| `DirectDischarge` | `bat_power`, `ppv_limit`, `timeout`, `bat_cap_min` |
+| `ChargeOnly` | `max_feedin_limit`, `timeout`, `bat_cap_min` |
+| `DischargeToLoadOnly` | `max_feedin_limit`, `timeout`, `bat_cap_min` |
+| `InverterOutputs` | `bat_power`, `bat_power_inv_limit`, `timeout`, `bat_cap_min` |
+| `InverterOperates` | `bat_power`, `timeout`, `bat_cap_min` |
+
+### The timeout is a safety feature
+
+Every mode except `SelfConsumption` takes a `timeout`, after which the inverter
+returns to normal operation on its own. If an automation dies mid-charge or Home
+Assistant goes down, the system does not stay stuck in a forced mode. Keep it
+short enough that a mistake corrects itself and have your automation renew the
+command; the default is 15 minutes.
+
 ## Installation
 
 ### HACS
@@ -76,13 +154,19 @@ does not resolve.
 
 ## How it works
 
-`POST /open-api/ecos-hub/v1/devices/{sn}/metrics` is polled once a minute for
-the last 30 minutes of samples, and the newest row is used.
+`POST /open-api/ecos-hub/v1/devices/{sn}/metrics` is polled every 30 seconds by
+default for the last 10 minutes of samples, and the newest row is used.
 
-The device uploads a sample roughly **every 5 minutes**, regardless of the
-`sample_by` parameter, so values change at that rate no matter how often Home
-Assistant polls. If the device misses an upload the previous readings are kept
-rather than blanking every entity.
+The device uploads a fresh sample roughly **every 10 seconds**, so that is the
+useful floor for polling — anything faster just re-fetches the same row. Adjust
+the interval under **Configure** on the integration (10–600 seconds).
+
+Do not add `sample_by` to the request. It downsamples rather than refines:
+asking for `1m` was observed to return one row per *five* minutes, while
+omitting it returns the raw 10-second data.
+
+If the device misses an upload the previous readings are kept rather than
+blanking every entity.
 
 ### Notes on the API
 
