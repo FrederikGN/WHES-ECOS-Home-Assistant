@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -23,13 +24,12 @@ from homeassistant.const import (
     PERCENTAGE,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import EcosHubConfigEntry
-from .const import DEVICE_STATE, DOMAIN, MANUFACTURER, RUN_MODE
+from .const import DEVICE_STATE, RUN_MODE
 from .coordinator import EcosHubCoordinator, EcosHubData
+from .entity import EcosHubEntity
 
 
 def _number(value: Any) -> float | None:
@@ -70,6 +70,14 @@ def _run_mode(data: EcosHubData) -> str | None:
     return RUN_MODE.get(int(value)) if value is not None else None
 
 
+def _sample_time(data: EcosHubData) -> datetime | None:
+    """When the newest sample was recorded, so data age is visible."""
+    value = _number(data.metrics.get("_sample_time"))
+    if value is None:
+        return None
+    return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+
+
 def _device_state(data: EcosHubData) -> str | None:
     value = data.device.get("state")
     if value is None:
@@ -84,7 +92,7 @@ def _device_state(data: EcosHubData) -> str | None:
 class EcosHubSensorDescription(SensorEntityDescription):
     """Describes an ECOS Hub sensor."""
 
-    value_fn: Callable[[EcosHubData], float | str | None]
+    value_fn: Callable[[EcosHubData], float | str | datetime | None]
 
 
 POWER_SENSORS: tuple[EcosHubSensorDescription, ...] = (
@@ -307,6 +315,13 @@ STATUS_SENSORS: tuple[EcosHubSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_device_state,
     ),
+    EcosHubSensorDescription(
+        key="last_sample",
+        translation_key="last_sample",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_sample_time,
+    ),
 )
 
 SENSORS: tuple[EcosHubSensorDescription, ...] = (
@@ -326,10 +341,9 @@ async def async_setup_entry(
     )
 
 
-class EcosHubSensor(CoordinatorEntity[EcosHubCoordinator], SensorEntity):
+class EcosHubSensor(EcosHubEntity, SensorEntity):
     """A single ECOS Hub measurement."""
 
-    _attr_has_entity_name = True
     entity_description: EcosHubSensorDescription
 
     def __init__(
@@ -342,24 +356,7 @@ class EcosHubSensor(CoordinatorEntity[EcosHubCoordinator], SensorEntity):
         self._attr_unique_id = f"{coordinator.device_sn}_{description.key}"
 
     @property
-    def device_info(self) -> DeviceInfo:
-        """Group every entity under one device."""
-        device = self.coordinator.data.device if self.coordinator.data else {}
-        model = (device.get("device_model") or "ECOS Hub").strip()
-        brand = (device.get("brand") or "").strip()
-
-        return DeviceInfo(
-            identifiers={(DOMAIN, self.coordinator.device_sn)},
-            name=f"{brand} {model}".strip() or model,
-            manufacturer=MANUFACTURER,
-            model=model,
-            serial_number=self.coordinator.device_sn,
-            sw_version=device.get("ems_software_version"),
-            hw_version=device.get("ems_hardware_version"),
-        )
-
-    @property
-    def native_value(self) -> float | str | None:
+    def native_value(self) -> float | str | datetime | None:
         """Return the current reading."""
         if self.coordinator.data is None:
             return None

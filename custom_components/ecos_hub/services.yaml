@@ -1,0 +1,63 @@
+set_control_mode:
+  target:
+    device:
+      integration: ecos_hub
+  fields:
+    mode:
+      required: true
+      selector:
+        select:
+          options:
+            - SelfConsumption
+            - DirectCharge
+            - DirectDischarge
+            - ChargeOnly
+            - DischargeToLoadOnly
+            - InverterOutputs
+            - InverterOperates
+    bat_power:
+      selector:
+        number:
+          min: -6000
+          max: 6000
+          step: 100
+          unit_of_measurement: W
+          mode: box
+    bat_cap_min:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    max_feedin_limit:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    ppv_limit:
+      selector:
+        number:
+          min: 0
+          max: 6000
+          step: 100
+          unit_of_measurement: W
+          mode: box
+    bat_power_inv_limit:
+      selector:
+        number:
+          min: 0
+          max: 6000
+          step: 100
+          unit_of_measurement: W
+          mode: box
+    timeout:
+      selector:
+        number:
+          min: 60
+          max: 86400
+          step: 60
+          unit_of_measurement: s
+          mode: box

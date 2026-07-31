@@ -11,8 +11,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import EcosHubAuthError, EcosHubClient, EcosHubError
 from .const import CONF_ACCESS_KEY, CONF_ACCESS_SECRET, CONF_DEVICE_SN, CONF_HOST
 from .coordinator import EcosHubCoordinator
+from .services import async_register_services
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+]
 
 EcosHubConfigEntry = ConfigEntry[EcosHubCoordinator]
 
@@ -36,6 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EcosHubConfigEntry) -> b
         raise ConfigEntryNotReady(str(err)) from err
 
     entry.runtime_data = coordinator
+    async_register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True

@@ -28,29 +28,75 @@
   },
   "entity": {
     "sensor": {
-      "solar_power": { "name": "Solproduktion" },
-      "pv1_power": { "name": "PV-streng 1 effekt" },
-      "pv2_power": { "name": "PV-streng 2 effekt" },
-      "inverter_power": { "name": "Inverter-effekt" },
-      "grid_power": { "name": "Neteffekt" },
-      "battery_power": { "name": "Batterieffekt" },
-      "battery_charge_power": { "name": "Batteriopladningseffekt" },
-      "battery_discharge_power": { "name": "Batteriafladningseffekt" },
-      "backup_power": { "name": "Nødstrøm (EPS) effekt" },
-      "battery_soc": { "name": "Batteriniveau" },
-      "battery_soh": { "name": "Batterisundhed" },
-      "battery_available_energy": { "name": "Tilgængelig batterienergi" },
-      "battery_voltage": { "name": "Batterispænding" },
-      "battery_current": { "name": "Batteristrøm" },
-      "energy_from_grid": { "name": "Energi købt fra nettet" },
-      "energy_to_grid": { "name": "Energi solgt til nettet" },
-      "energy_battery_charged": { "name": "Energi opladet i batteri" },
-      "energy_battery_discharged": { "name": "Energi afladet fra batteri" },
-      "energy_backup": { "name": "Leveret nødstrøm" },
-      "grid_voltage": { "name": "Netspænding" },
-      "grid_current": { "name": "Netstrøm" },
-      "grid_frequency": { "name": "Netfrekvens" },
-      "inverter_temperature": { "name": "Invertertemperatur" },
+      "solar_power": {
+        "name": "Solproduktion"
+      },
+      "pv1_power": {
+        "name": "PV-streng 1 effekt"
+      },
+      "pv2_power": {
+        "name": "PV-streng 2 effekt"
+      },
+      "inverter_power": {
+        "name": "Inverter-effekt"
+      },
+      "grid_power": {
+        "name": "Neteffekt"
+      },
+      "battery_power": {
+        "name": "Batterieffekt"
+      },
+      "battery_charge_power": {
+        "name": "Batteriopladningseffekt"
+      },
+      "battery_discharge_power": {
+        "name": "Batteriafladningseffekt"
+      },
+      "backup_power": {
+        "name": "Nødstrøm (EPS) effekt"
+      },
+      "battery_soc": {
+        "name": "Batteriniveau"
+      },
+      "battery_soh": {
+        "name": "Batterisundhed"
+      },
+      "battery_available_energy": {
+        "name": "Tilgængelig batterienergi"
+      },
+      "battery_voltage": {
+        "name": "Batterispænding"
+      },
+      "battery_current": {
+        "name": "Batteristrøm"
+      },
+      "energy_from_grid": {
+        "name": "Energi købt fra nettet"
+      },
+      "energy_to_grid": {
+        "name": "Energi solgt til nettet"
+      },
+      "energy_battery_charged": {
+        "name": "Energi opladet i batteri"
+      },
+      "energy_battery_discharged": {
+        "name": "Energi afladet fra batteri"
+      },
+      "energy_backup": {
+        "name": "Leveret nødstrøm"
+      },
+      "grid_voltage": {
+        "name": "Netspænding"
+      },
+      "grid_current": {
+        "name": "Netstrøm"
+      },
+      "grid_frequency": {
+        "name": "Netfrekvens"
+      },
+      "inverter_temperature": {
+        "name": "Invertertemperatur"
+      },
       "run_mode": {
         "name": "Driftstilstand",
         "state": {
@@ -75,6 +121,87 @@
           "fault": "Fejl",
           "reserved": "Reserveret",
           "self_check": "Selvtest"
+        }
+      },
+      "last_sample": {
+        "name": "Seneste måling"
+      }
+    },
+    "select": {
+      "control_mode": {
+        "name": "Styringstilstand",
+        "state": {
+          "SelfConsumption": "Egetforbrug",
+          "DirectCharge": "Tvungen opladning",
+          "DirectDischarge": "Tvungen afladning",
+          "ChargeOnly": "Kun opladning",
+          "DischargeToLoadOnly": "Kun aflad til forbrug",
+          "InverterOutputs": "Inverter-udgangseffekt",
+          "InverterOperates": "Inverter-driftseffekt"
+        }
+      }
+    },
+    "number": {
+      "battery_power_setpoint": {
+        "name": "Ønsket batterieffekt"
+      },
+      "min_battery_capacity": {
+        "name": "Minimum batteriniveau"
+      },
+      "max_feedin_limit": {
+        "name": "Maksimal netudveksling"
+      },
+      "pv_power_limit": {
+        "name": "PV-effektgrænse"
+      },
+      "control_timeout": {
+        "name": "Styrings-timeout"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opdateringsinterval",
+        "description": "Enheden uploader et nyt sample cirka hvert 10. sekund. Poller du hurtigere, henter du blot samme måling igen.",
+        "data": {
+          "scan_interval": "Sekunder mellem opdateringer"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_control_mode": {
+      "name": "Sæt styringstilstand",
+      "description": "Anvend en VPP-styringstilstand på inverteren. Felter du lader stå tomme, hentes fra de tilsvarende number-entities.",
+      "fields": {
+        "mode": {
+          "name": "Tilstand",
+          "description": "Hvilken styringstilstand der skal anvendes."
+        },
+        "bat_power": {
+          "name": "Batterieffekt",
+          "description": "NEGATIV lader batteriet op, POSITIV aflader det. Bemærk at det er modsat af batterieffekt-sensoren."
+        },
+        "bat_cap_min": {
+          "name": "Minimum batteriniveau",
+          "description": "Inverteren aflader ikke under dette niveau."
+        },
+        "max_feedin_limit": {
+          "name": "Maksimal netudveksling",
+          "description": "Procentdel af mærkeeffekten der må sendes ud på nettet."
+        },
+        "ppv_limit": {
+          "name": "PV-effektgrænse",
+          "description": "Begrænser solproduktionen mens tilstanden er aktiv."
+        },
+        "bat_power_inv_limit": {
+          "name": "Inverter-effektgrænse",
+          "description": "Grænse for batteriets referenceeffekt i inverter-tilstandene."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "Inverteren går tilbage til normal drift efter så mange sekunder. Fungerer som dødmandsknap."
         }
       }
     }

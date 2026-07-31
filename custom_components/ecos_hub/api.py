@@ -33,7 +33,7 @@ from urllib.parse import parse_qsl, quote, urlparse
 
 import aiohttp
 
-from .const import API_PREFIX
+from .const import API_PREFIX, MODE_REQUIRED_PARAMS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +59,15 @@ class EcosHubApiError(EcosHubError):
         super().__init__(f"[{code}] {message}")
         self.code = code
         self.message = message
+
+
+class EcosHubControlForbidden(EcosHubError):
+    """VPP control is not enabled for this account or device.
+
+    The gateway signals this as business code 5000 with an upstream 403, and
+    the device reports vpp_mode 0. It is a provisioning issue on WHES' side,
+    not something the client can work around.
+    """
 
 
 def _wts_rewrite(value: str) -> str:
@@ -170,11 +179,20 @@ class EcosHubClient:
     async def async_get_latest_metrics(
         self, device_sn: str, start_ms: int, end_ms: int, columns: list[str]
     ) -> dict[str, Any]:
-        """Return the most recent metrics sample as a flat mapping.
+        """Return the most recent known value for every metric.
 
         The endpoint answers with ``{"columns": [...], "rows": [[...], ...]}``
-        ordered oldest-first, so the newest sample is the final row. Returns an
-        empty dict when the device has not reported in the requested window.
+        ordered oldest-first. Rows are frequently sparse: this is a time-series
+        store and not every field is written in every sample, so the newest row
+        alone often has nulls scattered through it. Taking just ``rows[-1]``
+        therefore makes entities flip to "unknown" at random.
+
+        Instead we walk backwards from the newest row and keep the first
+        non-null value we find for each column, producing a complete snapshot
+        of the latest known state. ``_sample_time`` carries the timestamp of the
+        newest row so callers can tell how fresh the data is.
+
+        Returns an empty dict when the device has not reported in the window.
 
         Never request the ``time`` column: it is returned automatically and
         asking for it fails with "column time not valid". Models differ in which
@@ -205,4 +223,77 @@ class EcosHubClient:
             _LOGGER.debug("No metrics rows returned for %s", device_sn)
             return {}
 
-        return dict(zip(names, rows[-1]))
+        merged: dict[str, Any] = {}
+        for row in reversed(rows):
+            for name, value in zip(names, row):
+                if value is not None and name not in merged:
+                    merged[name] = value
+            if len(merged) == len(names):
+                break
+
+        merged["_sample_time"] = dict(zip(names, rows[-1])).get("time")
+
+        _LOGGER.debug(
+            "Merged %d/%d metrics for %s across %d rows",
+            len(merged) - 1,
+            len(names),
+            device_sn,
+            len(rows),
+        )
+        return merged
+
+    async def async_set_control_mode(
+        self, device_sn: str, mode: str, **params: float
+    ) -> None:
+        """Set the VPP control mode.
+
+        ``mode`` must be one of the keys in ``MODE_REQUIRED_PARAMS``; each mode
+        demands a different set of parameters and the API rejects incomplete
+        requests, so we validate before sending.
+
+        SIGN CONVENTION: ``bat_power`` is negative to CHARGE and positive to
+        DISCHARGE -- the reverse of the ``bat_p`` metric. Callers are
+        responsible for passing the value in this endpoint's convention.
+
+        Raises EcosHubControlForbidden when VPP control is not provisioned.
+        """
+        if mode not in MODE_REQUIRED_PARAMS:
+            raise ValueError(
+                f"Unknown control mode {mode!r}; "
+                f"expected one of {', '.join(MODE_REQUIRED_PARAMS)}"
+            )
+
+        required = MODE_REQUIRED_PARAMS[mode]
+        supplied = {key: value for key, value in params.items() if value is not None}
+
+        missing = [key for key in required if key not in supplied]
+        if missing:
+            raise ValueError(
+                f"Mode {mode} requires {', '.join(missing)}"
+            )
+
+        # Send only what this mode uses; extra keys have been seen to confuse
+        # the upstream device handler.
+        body: dict[str, Any] = {"mode": mode}
+        body.update({key: supplied[key] for key in required})
+
+        try:
+            await self._request(
+                "PUT", f"{API_PREFIX}/devices/{device_sn}/vpp/control-mode", json_body=body
+            )
+        except EcosHubApiError as err:
+            if "403" in err.message or "permission" in err.message.lower():
+                raise EcosHubControlForbidden(
+                    "VPP control is not enabled for this account or device. "
+                    "Ask WHES to enable VPP control mode for your AccessKey."
+                ) from err
+            raise
+
+        _LOGGER.debug("Set control mode %s on %s with %s", mode, device_sn, body)
+
+    async def async_bind_vpp_devices(self, device_sns: list[str]) -> dict[str, Any]:
+        """Bind devices to the VPP user behind these credentials."""
+        payload = await self._request(
+            "POST", f"{API_PREFIX}/vpp/bind-device", json_body={"devices": device_sns}
+        )
+        return payload.get("data") or {}

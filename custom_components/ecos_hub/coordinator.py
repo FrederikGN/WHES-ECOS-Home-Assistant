@@ -5,15 +5,29 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import EcosHubApiError, EcosHubAuthError, EcosHubClient, EcosHubError
+from .api import (
+    EcosHubApiError,
+    EcosHubAuthError,
+    EcosHubClient,
+    EcosHubControlForbidden,
+    EcosHubError,
+)
 from .const import (
-    DEFAULT_SCAN_INTERVAL,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_BATTERY_POWER,
+    DEFAULT_CONTROL_TIMEOUT,
+    DEFAULT_MAX_FEEDIN_LIMIT,
+    DEFAULT_MIN_BATTERY_CAPACITY,
+    DEFAULT_PV_POWER_LIMIT,
+    DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
     METRIC_COLUMNS,
     METRICS_LOOKBACK,
@@ -40,16 +54,54 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         client: EcosHubClient,
         device_sn: str,
     ) -> None:
+        interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_SECONDS)
         super().__init__(
             hass,
             _LOGGER,
             name=f"{DOMAIN} {device_sn}",
-            update_interval=DEFAULT_SCAN_INTERVAL,
+            update_interval=timedelta(seconds=interval),
             config_entry=entry,
         )
         self.client = client
         self.device_sn = device_sn
+        # Device metadata changes rarely. Refresh it roughly every 10 minutes
+        # regardless of how fast metrics are polled.
+        self._device_refresh_every = max(1, int(600 / max(interval, 1)))
         self._device_info_countdown = 0
+
+        # Set once the API tells us VPP control is not provisioned, so the
+        # control entities can stop pretending they work.
+        self.control_forbidden = False
+        self.last_control_mode: str | None = None
+
+        # Staged parameters. The select entity and the service read these, so a
+        # user can dial in power and limits before choosing a mode.
+        self.staged: dict[str, float] = {
+            "bat_power": DEFAULT_BATTERY_POWER,
+            "bat_cap_min": DEFAULT_MIN_BATTERY_CAPACITY,
+            "max_feedin_limit": DEFAULT_MAX_FEEDIN_LIMIT,
+            "ppv_limit": DEFAULT_PV_POWER_LIMIT,
+            "bat_power_inv_limit": DEFAULT_PV_POWER_LIMIT,
+            "timeout": DEFAULT_CONTROL_TIMEOUT,
+        }
+
+    async def async_set_control_mode(self, mode: str, **overrides: float) -> None:
+        """Apply a VPP control mode using staged values for anything omitted."""
+        params = {**self.staged, **{k: v for k, v in overrides.items() if v is not None}}
+
+        try:
+            await self.client.async_set_control_mode(self.device_sn, mode, **params)
+        except EcosHubControlForbidden as err:
+            self.control_forbidden = True
+            self.async_update_listeners()
+            raise HomeAssistantError(str(err)) from err
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+        except EcosHubError as err:
+            raise HomeAssistantError(f"Could not set control mode: {err}") from err
+
+        self.last_control_mode = mode
+        self.async_update_listeners()
 
     async def _async_update_data(self) -> EcosHubData:
         now_ms = int(time.time() * 1000)
@@ -71,13 +123,12 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         if not metrics:
             metrics = previous.metrics
 
-        # Device metadata (firmware, model, state) changes rarely; refresh it
-        # about every 10 minutes.
+        # Device metadata (firmware, model, state) changes rarely.
         device = previous.device
         if self._device_info_countdown <= 0 or not device:
             try:
                 device = await self.client.async_get_device(self.device_sn)
-                self._device_info_countdown = 10
+                self._device_info_countdown = self._device_refresh_every
             except EcosHubApiError as err:
                 # Non-fatal: metrics are what matter.
                 _LOGGER.debug("Could not refresh device details: %s", err)

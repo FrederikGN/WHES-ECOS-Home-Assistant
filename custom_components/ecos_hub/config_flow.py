@@ -6,9 +6,18 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -20,7 +29,11 @@ from .const import (
     CONF_ACCESS_SECRET,
     CONF_DEVICE_SN,
     CONF_HOST,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
+    MAX_SCAN_INTERVAL_SECONDS,
+    MIN_SCAN_INTERVAL_SECONDS,
     REGIONS,
 )
 
@@ -50,6 +63,12 @@ class EcosHubConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._credentials: dict[str, Any] = {}
         self._devices: list[dict[str, Any]] = []
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> EcosHubOptionsFlow:
+        """Return the options flow."""
+        return EcosHubOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -135,4 +154,38 @@ class EcosHubConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(
             title=f"{model} ({device_sn})",
             data={**self._credentials, CONF_DEVICE_SN: device_sn},
+        )
+
+
+class EcosHubOptionsFlow(OptionsFlow):
+    """Let the user tune how often we poll."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(
+                data={CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL])}
+            )
+
+        current = self.config_entry.options.get(
+            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_SECONDS
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_SCAN_INTERVAL, default=current): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_SCAN_INTERVAL_SECONDS,
+                            max=MAX_SCAN_INTERVAL_SECONDS,
+                            step=5,
+                            unit_of_measurement="s",
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    )
+                }
+            ),
         )
