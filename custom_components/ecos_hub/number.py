@@ -145,9 +145,9 @@ class EcosHubNumber(EcosHubControlEntity, RestoreNumber):
         """Restore the previous value and push it into the staged parameters."""
         await super().async_added_to_hass()
 
-        if (last := await self.async_get_last_number_data()) is not None:
-            if last.native_value is not None:
-                self._attr_native_value = last.native_value
+        last = await self.async_get_last_number_data()
+        if last is not None and last.native_value is not None:
+            self._attr_native_value = last.native_value
 
         self.coordinator.staged[self.entity_description.param] = float(
             self._attr_native_value

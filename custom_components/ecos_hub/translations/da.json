@@ -131,13 +131,13 @@
       "control_mode": {
         "name": "Styringstilstand",
         "state": {
-          "SelfConsumption": "Egetforbrug",
-          "DirectCharge": "Tvungen opladning",
-          "DirectDischarge": "Tvungen afladning",
-          "ChargeOnly": "Kun opladning",
-          "DischargeToLoadOnly": "Kun aflad til forbrug",
-          "InverterOutputs": "Inverter-udgangseffekt",
-          "InverterOperates": "Inverter-driftseffekt"
+          "self_consumption": "Egetforbrug",
+          "direct_charge": "Tvungen opladning",
+          "direct_discharge": "Tvungen afladning",
+          "charge_only": "Kun opladning",
+          "discharge_to_load_only": "Kun aflad til forbrug",
+          "inverter_outputs": "Inverter-udgangseffekt",
+          "inverter_operates": "Inverter-driftseffekt"
         }
       }
     },

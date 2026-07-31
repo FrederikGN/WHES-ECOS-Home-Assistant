@@ -131,13 +131,13 @@
       "control_mode": {
         "name": "Control mode",
         "state": {
-          "SelfConsumption": "Self-consumption",
-          "DirectCharge": "Force charge",
-          "DirectDischarge": "Force discharge",
-          "ChargeOnly": "Charge only",
-          "DischargeToLoadOnly": "Discharge to load only",
-          "InverterOutputs": "Inverter output setpoint",
-          "InverterOperates": "Inverter operating setpoint"
+          "self_consumption": "Self-consumption",
+          "direct_charge": "Force charge",
+          "direct_discharge": "Force discharge",
+          "charge_only": "Charge only",
+          "discharge_to_load_only": "Discharge to load only",
+          "inverter_outputs": "Inverter output setpoint",
+          "inverter_operates": "Inverter operating setpoint"
         }
       }
     },

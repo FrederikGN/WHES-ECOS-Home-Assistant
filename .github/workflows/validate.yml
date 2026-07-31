@@ -23,6 +23,13 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # "brands" checks the domain against home-assistant/brands, which
+          # only lists integrations shipped with Home Assistant. A custom
+          # integration will never pass it.
+          ignore: brands
+        env:
+          # The HACS action queries the GitHub API and fails without a token.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   ruff:
     name: Ruff
