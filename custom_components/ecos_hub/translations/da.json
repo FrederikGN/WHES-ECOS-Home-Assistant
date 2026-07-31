@@ -175,84 +175,10 @@
       "name": "Sæt styringstilstand",
       "description": "Anvend en VPP-styringstilstand på inverteren. Felter du lader stå tomme, hentes fra de tilsvarende number-entities.",
       "fields": {
-        "mode": {
-          "name": "Tilstand",
-          "description": "Hvilken styringstilstand der skal anvendes."
+        "device_id": {
+          "name": "Enhed",
+          "description": "Hvilken ECOS Hub-inverter der skal styres."
         },
-        "bat_power": {
-          "name": "Batterieffekt",
-          "description": "NEGATIV lader batteriet op, POSITIV aflader det. Bemærk at det er modsat af batterieffekt-sensoren."
-        },
-        "bat_cap_min": {
-          "name": "Minimum batteriniveau",
-          "description": "Inverteren aflader ikke under dette niveau."
-        },
-        "max_feedin_limit": {
-          "name": "Maksimal netudveksling",
-          "description": "Procentdel af mærkeeffekten der må sendes ud på nettet."
-        },
-        "ppv_limit": {
-          "name": "PV-effektgrænse",
-          "description": "Begrænser solproduktionen mens tilstanden er aktiv."
-        },
-        "bat_power_inv_limit": {
-          "name": "Inverter-effektgrænse",
-          "description": "Grænse for batteriets referenceeffekt i inverter-tilstandene."
-        },
-        "timeout": {
-          "name": "Timeout",
-          "description": "Inverteren går tilbage til normal drift efter så mange sekunder. Fungerer som dødmandsknap."
-        }
-      }
-    },
-    "select": {
-      "control_mode": {
-        "name": "Styringstilstand",
-        "state": {
-          "SelfConsumption": "Egetforbrug",
-          "DirectCharge": "Tvungen opladning",
-          "DirectDischarge": "Tvungen afladning",
-          "ChargeOnly": "Kun opladning",
-          "DischargeToLoadOnly": "Kun aflad til forbrug",
-          "InverterOutputs": "Inverter-udgangseffekt",
-          "InverterOperates": "Inverter-driftseffekt"
-        }
-      }
-    },
-    "number": {
-      "battery_power_setpoint": {
-        "name": "Ønsket batterieffekt"
-      },
-      "min_battery_capacity": {
-        "name": "Minimum batteriniveau"
-      },
-      "max_feedin_limit": {
-        "name": "Maksimal netudveksling"
-      },
-      "pv_power_limit": {
-        "name": "PV-effektgrænse"
-      },
-      "control_timeout": {
-        "name": "Styrings-timeout"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Opdateringsinterval",
-        "description": "Enheden uploader et nyt sample cirka hvert 10. sekund. Poller du hurtigere, henter du blot samme måling igen.",
-        "data": {
-          "scan_interval": "Sekunder mellem opdateringer"
-        }
-      }
-    }
-  },
-  "services": {
-    "set_control_mode": {
-      "name": "Sæt styringstilstand",
-      "description": "Anvend en VPP-styringstilstand på inverteren. Felter du lader stå tomme, hentes fra de tilsvarende number-entities.",
-      "fields": {
         "mode": {
           "name": "Tilstand",
           "description": "Hvilken styringstilstand der skal anvendes."

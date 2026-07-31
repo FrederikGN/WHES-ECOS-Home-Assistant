@@ -1,12 +1,15 @@
+# Home Assistant no longer accepts device filters under "target", so the
+# device is picked through a device selector field instead. That also matches
+# what the service handler expects, which is a device_id.
 set_control_mode:
-  target:
-    device:
-      # The integration filter has to sit under "filter" as a list. Writing
-      # "integration: ecos_hub" directly under "device" is the older syntax
-      # and hassfest rejects it.
-      filter:
-        - integration: ecos_hub
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: ecos_hub
+          multiple: true
     mode:
       required: true
       selector:

@@ -114,9 +114,8 @@ changes made from the ECOS app.
 
 ```yaml
 action: ecos_hub.set_control_mode
-target:
-  device_id: <your inverter>
 data:
+  device_id: <your inverter>
   mode: DirectCharge
   bat_power: -3000      # negative = charge at 3 kW
   bat_cap_min: 20
@@ -191,9 +190,8 @@ changes made from the ECOS app.
 
 ```yaml
 action: ecos_hub.set_control_mode
-target:
-  device_id: <your inverter>
 data:
+  device_id: <your inverter>
   mode: DirectCharge
   bat_power: -3000      # negative = charge at 3 kW
   bat_cap_min: 20
