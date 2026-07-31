@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -13,6 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    PERCENTAGE,
     EntityCategory,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
@@ -20,7 +22,6 @@ from homeassistant.const import (
     UnitOfFrequency,
     UnitOfPower,
     UnitOfTemperature,
-    PERCENTAGE,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -69,6 +70,14 @@ def _run_mode(data: EcosHubData) -> str | None:
     return RUN_MODE.get(int(value)) if value is not None else None
 
 
+def _sample_time(data: EcosHubData) -> datetime | None:
+    """When the newest sample was recorded, so data age is visible."""
+    value = _number(data.metrics.get("_sample_time"))
+    if value is None:
+        return None
+    return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+
+
 def _device_state(data: EcosHubData) -> str | None:
     value = data.device.get("state")
     if value is None:
@@ -83,7 +92,7 @@ def _device_state(data: EcosHubData) -> str | None:
 class EcosHubSensorDescription(SensorEntityDescription):
     """Describes an ECOS Hub sensor."""
 
-    value_fn: Callable[[EcosHubData], float | str | None]
+    value_fn: Callable[[EcosHubData], float | str | datetime | None]
 
 
 POWER_SENSORS: tuple[EcosHubSensorDescription, ...] = (
@@ -306,6 +315,13 @@ STATUS_SENSORS: tuple[EcosHubSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_device_state,
     ),
+    EcosHubSensorDescription(
+        key="last_sample",
+        translation_key="last_sample",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_sample_time,
+    ),
 )
 
 SENSORS: tuple[EcosHubSensorDescription, ...] = (
@@ -340,7 +356,7 @@ class EcosHubSensor(EcosHubEntity, SensorEntity):
         self._attr_unique_id = f"{coordinator.device_sn}_{description.key}"
 
     @property
-    def native_value(self) -> float | str | None:
+    def native_value(self) -> float | str | datetime | None:
         """Return the current reading."""
         if self.coordinator.data is None:
             return None

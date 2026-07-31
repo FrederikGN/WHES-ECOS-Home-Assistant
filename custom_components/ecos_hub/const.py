@@ -42,10 +42,10 @@ MIN_SCAN_INTERVAL_SECONDS: Final = 10
 MAX_SCAN_INTERVAL_SECONDS: Final = 600
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
 
-# How far back to ask for metrics. Long enough to still find a sample if the
-# device dropped offline briefly, short enough to keep responses small now that
-# rows arrive every 10 seconds.
-METRICS_LOOKBACK: Final = timedelta(minutes=10)
+# How far back to ask for metrics. Rows are sparse -- a given field may only be
+# written every few minutes -- and we merge backwards to fill the gaps, so this
+# window needs to be comfortably longer than the slowest-updating field.
+METRICS_LOOKBACK: Final = timedelta(minutes=30)
 
 MANUFACTURER: Final = "WEIHENG"
 
@@ -106,6 +106,22 @@ MODE_REQUIRED_PARAMS: Final[dict[str, tuple[str, ...]]] = {
 }
 
 CONTROL_MODES: Final = tuple(MODE_REQUIRED_PARAMS)
+
+# Home Assistant requires entity state translation keys to be lowercase slugs,
+# so the select entity exposes slugs and maps them to the API's CamelCase mode
+# names. The service keeps the API names, since those are what the WHES docs
+# use.
+MODE_SLUGS: Final[dict[str, str]] = {
+    "self_consumption": MODE_SELF_CONSUMPTION,
+    "direct_charge": MODE_DIRECT_CHARGE,
+    "direct_discharge": MODE_DIRECT_DISCHARGE,
+    "charge_only": MODE_CHARGE_ONLY,
+    "discharge_to_load_only": MODE_DISCHARGE_TO_LOAD_ONLY,
+    "inverter_outputs": MODE_INVERTER_OUTPUTS,
+    "inverter_operates": MODE_INVERTER_OPERATES,
+}
+
+MODE_TO_SLUG: Final[dict[str, str]] = {v: k for k, v in MODE_SLUGS.items()}
 
 # The device reverts to normal operation once the timeout expires, which makes
 # it a dead-man's switch: a crashed automation cannot leave the system stuck in

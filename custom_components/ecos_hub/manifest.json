@@ -1,12 +1,12 @@
 {
   "domain": "ecos_hub",
   "name": "WHES ECOS Hub",
-  "codeowners": [],
+  "codeowners": ["@FrederikGN"],
   "config_flow": true,
-  "documentation": "https://github.com/fralle14/ha-ecos-hub",
+  "documentation": "https://github.com/FrederikGN/WHES-ECOS-Home-Assistant",
   "integration_type": "device",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/fralle14/ha-ecos-hub/issues",
+  "issue_tracker": "https://github.com/FrederikGN/WHES-ECOS-Home-Assistant/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

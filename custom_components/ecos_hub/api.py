@@ -179,11 +179,20 @@ class EcosHubClient:
     async def async_get_latest_metrics(
         self, device_sn: str, start_ms: int, end_ms: int, columns: list[str]
     ) -> dict[str, Any]:
-        """Return the most recent metrics sample as a flat mapping.
+        """Return the most recent known value for every metric.
 
         The endpoint answers with ``{"columns": [...], "rows": [[...], ...]}``
-        ordered oldest-first, so the newest sample is the final row. Returns an
-        empty dict when the device has not reported in the requested window.
+        ordered oldest-first. Rows are frequently sparse: this is a time-series
+        store and not every field is written in every sample, so the newest row
+        alone often has nulls scattered through it. Taking just ``rows[-1]``
+        therefore makes entities flip to "unknown" at random.
+
+        Instead we walk backwards from the newest row and keep the first
+        non-null value we find for each column, producing a complete snapshot
+        of the latest known state. ``_sample_time`` carries the timestamp of the
+        newest row so callers can tell how fresh the data is.
+
+        Returns an empty dict when the device has not reported in the window.
 
         Never request the ``time`` column: it is returned automatically and
         asking for it fails with "column time not valid". Models differ in which
@@ -214,7 +223,24 @@ class EcosHubClient:
             _LOGGER.debug("No metrics rows returned for %s", device_sn)
             return {}
 
-        return dict(zip(names, rows[-1]))
+        merged: dict[str, Any] = {}
+        for row in reversed(rows):
+            for name, value in zip(names, row):
+                if value is not None and name not in merged:
+                    merged[name] = value
+            if len(merged) == len(names):
+                break
+
+        merged["_sample_time"] = dict(zip(names, rows[-1])).get("time")
+
+        _LOGGER.debug(
+            "Merged %d/%d metrics for %s across %d rows",
+            len(merged) - 1,
+            len(names),
+            device_sn,
+            len(rows),
+        )
+        return merged
 
     async def async_set_control_mode(
         self, device_sn: str, mode: str, **params: float
