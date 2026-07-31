@@ -1,7 +1,11 @@
 set_control_mode:
   target:
     device:
-      integration: ecos_hub
+      # The integration filter has to sit under "filter" as a list. Writing
+      # "integration: ecos_hub" directly under "device" is the older syntax
+      # and hassfest rejects it.
+      filter:
+        - integration: ecos_hub
   fields:
     mode:
       required: true
