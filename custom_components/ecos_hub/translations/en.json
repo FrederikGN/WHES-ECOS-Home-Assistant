@@ -175,84 +175,10 @@
       "name": "Set control mode",
       "description": "Apply a VPP control mode to the inverter. Anything you leave blank falls back to the corresponding number entity.",
       "fields": {
-        "mode": {
-          "name": "Mode",
-          "description": "Which control mode to apply."
+        "device_id": {
+          "name": "Device",
+          "description": "Which ECOS Hub inverter to control."
         },
-        "bat_power": {
-          "name": "Battery power",
-          "description": "NEGATIVE charges the battery, POSITIVE discharges it. Note this is the opposite of the battery power sensor."
-        },
-        "bat_cap_min": {
-          "name": "Minimum battery level",
-          "description": "The inverter will not discharge below this level."
-        },
-        "max_feedin_limit": {
-          "name": "Maximum feed-in limit",
-          "description": "Percentage of rated grid power allowed to be exported."
-        },
-        "ppv_limit": {
-          "name": "PV power limit",
-          "description": "Caps solar production while the mode is active."
-        },
-        "bat_power_inv_limit": {
-          "name": "Inverter power limit",
-          "description": "Battery power reference limit for the inverter setpoint modes."
-        },
-        "timeout": {
-          "name": "Timeout",
-          "description": "The inverter reverts to normal operation after this many seconds. Acts as a dead-man's switch."
-        }
-      }
-    },
-    "select": {
-      "control_mode": {
-        "name": "Control mode",
-        "state": {
-          "SelfConsumption": "Self-consumption",
-          "DirectCharge": "Force charge",
-          "DirectDischarge": "Force discharge",
-          "ChargeOnly": "Charge only",
-          "DischargeToLoadOnly": "Discharge to load only",
-          "InverterOutputs": "Inverter output setpoint",
-          "InverterOperates": "Inverter operating setpoint"
-        }
-      }
-    },
-    "number": {
-      "battery_power_setpoint": {
-        "name": "Battery power setpoint"
-      },
-      "min_battery_capacity": {
-        "name": "Minimum battery level"
-      },
-      "max_feedin_limit": {
-        "name": "Maximum feed-in limit"
-      },
-      "pv_power_limit": {
-        "name": "PV power limit"
-      },
-      "control_timeout": {
-        "name": "Control timeout"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Polling interval",
-        "description": "The device uploads a new sample about every 10 seconds. Polling faster than that just re-fetches the same reading.",
-        "data": {
-          "scan_interval": "Seconds between updates"
-        }
-      }
-    }
-  },
-  "services": {
-    "set_control_mode": {
-      "name": "Set control mode",
-      "description": "Apply a VPP control mode to the inverter. Anything you leave blank falls back to the corresponding number entity.",
-      "fields": {
         "mode": {
           "name": "Mode",
           "description": "Which control mode to apply."
