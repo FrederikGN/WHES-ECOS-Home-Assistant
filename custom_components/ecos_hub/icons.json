@@ -1,0 +1,90 @@
+{
+  "services": {
+    "set_control_mode": {
+      "service": "mdi:tune-variant"
+    }
+  },
+  "entity": {
+    "select": {
+      "control_mode": {
+        "default": "mdi:tune-variant"
+      }
+    },
+    "number": {
+      "battery_power_setpoint": {
+        "default": "mdi:battery-sync"
+      },
+      "min_battery_capacity": {
+        "default": "mdi:battery-low"
+      },
+      "max_feedin_limit": {
+        "default": "mdi:transmission-tower-export"
+      },
+      "pv_power_limit": {
+        "default": "mdi:solar-power-variant"
+      },
+      "control_timeout": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "sensor": {
+      "solar_power": {
+        "default": "mdi:solar-power"
+      },
+      "pv1_power": {
+        "default": "mdi:solar-panel"
+      },
+      "pv2_power": {
+        "default": "mdi:solar-panel"
+      },
+      "inverter_power": {
+        "default": "mdi:flash"
+      },
+      "grid_power": {
+        "default": "mdi:transmission-tower"
+      },
+      "battery_power": {
+        "default": "mdi:home-battery"
+      },
+      "battery_charge_power": {
+        "default": "mdi:battery-charging"
+      },
+      "battery_discharge_power": {
+        "default": "mdi:battery-arrow-down"
+      },
+      "backup_power": {
+        "default": "mdi:power-plug-battery"
+      },
+      "battery_soh": {
+        "default": "mdi:battery-heart-variant"
+      },
+      "battery_available_energy": {
+        "default": "mdi:battery-medium"
+      },
+      "energy_from_grid": {
+        "default": "mdi:transmission-tower-import"
+      },
+      "energy_to_grid": {
+        "default": "mdi:transmission-tower-export"
+      },
+      "energy_battery_charged": {
+        "default": "mdi:battery-plus-variant"
+      },
+      "energy_battery_discharged": {
+        "default": "mdi:battery-minus-variant"
+      },
+      "energy_backup": {
+        "default": "mdi:power-plug-battery"
+      },
+      "run_mode": {
+        "default": "mdi:state-machine"
+      },
+      "device_state": {
+        "default": "mdi:information-outline"
+      },
+      "last_sample": {
+        "default": "mdi:clock-check-outline"
+      }
+    }
+  }
+}
