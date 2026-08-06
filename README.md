@@ -269,6 +269,16 @@ omitting it returns the raw 10-second data.
 If the device misses an upload the previous readings are kept rather than
 blanking every entity.
 
+The API also answers `5000 Internal error` from time to time, notably around
+its nightly maintenance window. Up to ten consecutive failures are ridden out
+on the last known readings before the entities are marked unavailable — about
+five minutes at the default interval. Authentication failures are never
+tolerated, since bad credentials will not fix themselves.
+
+Polling also backs off while the API is failing: the interval doubles per
+failure up to ten minutes, then resets on the first success. A five-hour
+outage costs about 36 requests instead of 660.
+
 ### Notes on the API
 
 Things that cost time to work out, recorded here so the next person doesn't

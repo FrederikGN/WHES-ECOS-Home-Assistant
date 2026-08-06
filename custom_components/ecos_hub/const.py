@@ -47,6 +47,18 @@ DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
 # window needs to be comfortably longer than the slowest-updating field.
 METRICS_LOOKBACK: Final = timedelta(minutes=30)
 
+# The upstream API intermittently answers 5000 "Internal error", notably around
+# its nightly maintenance window. Tolerate a run of those before declaring the
+# entities unavailable; at the default 30s interval this rides out roughly five
+# minutes of upstream trouble.
+MAX_TOLERATED_FAILURES: Final = 10
+
+# Once the API is clearly down, back off instead of hammering it. The interval
+# doubles per failure up to this ceiling, then resets on the first success.
+# A multi-hour outage otherwise means hundreds of pointless requests, which is
+# a good way to get an access key throttled.
+BACKOFF_MAX_INTERVAL: Final = timedelta(minutes=10)
+
 MANUFACTURER: Final = "WEIHENG"
 
 # Device state codes from the device-list endpoint.
