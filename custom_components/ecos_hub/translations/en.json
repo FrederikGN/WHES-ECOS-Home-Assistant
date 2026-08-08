@@ -40,6 +40,9 @@
       "inverter_power": {
         "name": "Inverter power"
       },
+      "house_consumption": {
+        "name": "House consumption"
+      },
       "grid_power": {
         "name": "Grid power"
       },

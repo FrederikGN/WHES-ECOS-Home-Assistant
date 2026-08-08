@@ -40,6 +40,9 @@
       "inverter_power": {
         "name": "Inverter-effekt"
       },
+      "house_consumption": {
+        "name": "Husforbrug"
+      },
       "grid_power": {
         "name": "Neteffekt"
       },

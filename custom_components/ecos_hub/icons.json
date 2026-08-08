@@ -84,6 +84,9 @@
       },
       "last_sample": {
         "default": "mdi:clock-check-outline"
+      },
+      "house_consumption": {
+        "default": "mdi:home-lightning-bolt"
       }
     }
   }
