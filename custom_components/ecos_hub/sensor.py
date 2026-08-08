@@ -53,6 +53,31 @@ def _solar_power(data: EcosHubData) -> float | None:
     return sum(present) if present else None
 
 
+def _house_consumption(data: EcosHubData) -> float | None:
+    """Everything the house is drawing, in watts.
+
+    The API exposes no consumption field, so it is derived from the power
+    balance at the grid connection:
+
+        house = inverter output + grid import
+
+    SIGN: meter_p is POSITIVE when importing from the grid. That was
+    established empirically -- switching on a 3.2 kW oven moved meter_p from
+    -126 W to +3075 W while the inverter output stayed flat, and the derived
+    consumption rose by exactly the oven's draw. The documentation does not
+    state the convention, so if consumption ever reads absurdly (negative
+    during heavy load, say), suspect that a firmware update flipped it.
+
+    Small negative results are possible when the inverter briefly overshoots
+    the load, so the value is clamped at zero.
+    """
+    inverter = _number(data.metrics.get("ac_p"))
+    grid = _number(data.metrics.get("meter_p"))
+    if inverter is None or grid is None:
+        return None
+    return max(inverter + grid, 0.0)
+
+
 def _battery_charge_power(data: EcosHubData) -> float | None:
     """Charging power only (0 while discharging)."""
     value = _number(data.metrics.get("bat_p"))
@@ -129,11 +154,20 @@ POWER_SENSORS: tuple[EcosHubSensorDescription, ...] = (
         value_fn=_metric("ac_p"),
     ),
     EcosHubSensorDescription(
+        key="house_consumption",
+        translation_key="house_consumption",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_house_consumption,
+    ),
+    EcosHubSensorDescription(
         key="grid_power",
         translation_key="grid_power",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
+        # Positive imports from the grid, negative exports to it.
         value_fn=_metric("meter_p"),
     ),
     EcosHubSensorDescription(

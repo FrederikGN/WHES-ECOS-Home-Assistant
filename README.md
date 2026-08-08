@@ -19,7 +19,8 @@ Grouped under one device, ready for the Home Assistant Energy Dashboard.
 | Solar power | `pv1_p + pv2_p` |
 | PV string 1 / 2 power | `pv1_p`, `pv2_p` |
 | Inverter power | `ac_p` |
-| Grid power | `meter_p` |
+| House consumption | `ac_p + meter_p` (derived) |
+| Grid power | `meter_p` (positive imports, negative exports) |
 | Battery power | `bat_p` (positive = charging) |
 | Battery charge / discharge power | derived from `bat_p`, split into two always-positive sensors |
 | Backup (EPS) power | `eps_p` |
@@ -67,6 +68,31 @@ into energy:
 
 The new sensor then appears under **Solar production**. It starts at zero and
 accumulates from there, so give it a day before the figures mean anything.
+
+### House consumption
+
+The API has no consumption field either, so it is derived from the power
+balance at the grid connection:
+
+```
+house consumption = inverter output + grid import
+```
+
+`meter_p` is **positive when importing** from the grid. The documentation never
+says so; it was established by switching on a 3.2 kW oven and watching `meter_p`
+move from -126 W to +3075 W while the inverter output stayed flat. The derived
+consumption rose by exactly the oven's draw, and the opposite convention would
+have produced a negative consumption, which is impossible.
+
+If consumption ever reads absurdly — negative under heavy load, or falling when
+you switch something on — suspect that a firmware update flipped the sign.
+
+Small negative results are clamped to zero, because a load-following inverter
+briefly overshoots and pushes a little back to the grid.
+
+For the Energy Dashboard's individual-device section, run this through the same
+Riemann integral helper described above; there is no cumulative consumption
+counter in the API.
 
 ## Control
 
