@@ -2,12 +2,21 @@
   "services": {
     "set_control_mode": {
       "service": "mdi:tune-variant"
+    },
+    "set_charge_schedule": {
+      "service": "mdi:calendar-clock"
+    },
+    "clear_charge_schedule": {
+      "service": "mdi:calendar-remove"
     }
   },
   "entity": {
     "select": {
       "control_mode": {
         "default": "mdi:tune-variant"
+      },
+      "battery_mode": {
+        "default": "mdi:home-battery-outline"
       }
     },
     "number": {
@@ -25,6 +34,21 @@
       },
       "control_timeout": {
         "default": "mdi:timer-outline"
+      },
+      "battery_min_soc": {
+        "default": "mdi:battery-arrow-down-outline"
+      },
+      "battery_eps_min_soc": {
+        "default": "mdi:power-plug-battery-outline"
+      },
+      "battery_max_feedin": {
+        "default": "mdi:transmission-tower-export"
+      },
+      "protect_soc": {
+        "default": "mdi:battery-lock"
+      },
+      "release_soc": {
+        "default": "mdi:battery-unknown"
       }
     },
     "sensor": {
@@ -87,6 +111,19 @@
       },
       "house_consumption": {
         "default": "mdi:home-lightning-bolt"
+      }
+    },
+    "switch": {
+      "discharge_to_grid": {
+        "default": "mdi:transmission-tower-export"
+      }
+    },
+    "button": {
+      "protect_battery": {
+        "default": "mdi:battery-lock"
+      },
+      "release_battery": {
+        "default": "mdi:battery-lock-open"
       }
     }
   }

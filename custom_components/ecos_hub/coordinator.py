@@ -23,13 +23,18 @@ from .api import (
 from .const import (
     BACKOFF_MAX_INTERVAL,
     CONF_SCAN_INTERVAL,
+    CONFIG_MODULE_BATTERY,
+    CONFIG_REFRESH_SECONDS,
     DEFAULT_BATTERY_POWER,
     DEFAULT_CONTROL_TIMEOUT,
     DEFAULT_MAX_FEEDIN_LIMIT,
     DEFAULT_MIN_BATTERY_CAPACITY,
+    DEFAULT_PROTECT_SOC,
     DEFAULT_PV_POWER_LIMIT,
+    DEFAULT_RELEASE_SOC,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
+    MAX_SEGMENTS,
     MAX_TOLERATED_FAILURES,
     METRIC_COLUMNS,
     METRICS_LOOKBACK,
@@ -44,6 +49,7 @@ class EcosHubData:
 
     metrics: dict[str, Any] = field(default_factory=dict)
     device: dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
 
 class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
@@ -71,6 +77,16 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         self._device_refresh_every = max(1, int(600 / max(interval, 1)))
         self._device_info_countdown = 0
 
+        # Battery configuration only changes when something writes it, so it is
+        # read far less often than the metrics.
+        self._config_refresh_every = max(
+            1, int(CONFIG_REFRESH_SECONDS / max(interval, 1))
+        )
+        self._config_countdown = 0
+        # Set when the account lacks device-level permissions, so the
+        # configuration entities can mark themselves unavailable.
+        self.config_available = True
+
         # Transient upstream failures are tolerated for a while before the
         # entities are marked unavailable.
         self._consecutive_failures = 0
@@ -84,6 +100,8 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         # Staged parameters. The select entity and the service read these, so a
         # user can dial in power and limits before choosing a mode.
         self.staged: dict[str, float] = {
+            "protect_soc": DEFAULT_PROTECT_SOC,
+            "release_soc": DEFAULT_RELEASE_SOC,
             "bat_power": DEFAULT_BATTERY_POWER,
             "bat_cap_min": DEFAULT_MIN_BATTERY_CAPACITY,
             "max_feedin_limit": DEFAULT_MAX_FEEDIN_LIMIT,
@@ -190,4 +208,65 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         else:
             self._device_info_countdown -= 1
 
-        return EcosHubData(metrics=metrics, device=device)
+        config = previous.config
+        if self._config_countdown <= 0 or not config:
+            try:
+                config = await self.client.async_query_config(
+                    self.device_sn, CONFIG_MODULE_BATTERY
+                )
+                self.config_available = True
+                self._config_countdown = self._config_refresh_every
+            except EcosHubError as err:
+                # Device-level permissions are a separate grant from the
+                # metrics feed, so this can fail while everything else works.
+                if self.config_available:
+                    _LOGGER.info("Battery configuration unavailable: %s", err)
+                self.config_available = False
+                self._config_countdown = self._config_refresh_every
+        else:
+            self._config_countdown -= 1
+
+        return EcosHubData(metrics=metrics, device=device, config=config)
+
+    async def async_write_battery_config(self, **fields: Any) -> None:
+        """Write battery settings and refresh so entities show the truth."""
+        try:
+            await self.client.async_set_battery_config(self.device_sn, **fields)
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+        except EcosHubError as err:
+            raise HomeAssistantError(f"Could not write battery config: {err}") from err
+
+        # Force a re-read on the next cycle rather than trusting our own write:
+        # WHES AI and the ECOS app write the same settings and may override us.
+        self._config_countdown = 0
+        await self.async_request_refresh()
+
+    async def async_write_segment(
+        self, index: int, changes: dict[str, Any]
+    ) -> None:
+        """Update one scheduled period, leaving the other eleven untouched.
+
+        Periods are positional, so the whole list has to be sent every time.
+        The current list is re-read first so a concurrent change by the app or
+        by WHES AI is not silently reverted.
+        """
+        config = await self.client.async_query_config(
+            self.device_sn, CONFIG_MODULE_BATTERY
+        )
+        segments = list(config.get("segments") or [])
+
+        while len(segments) < MAX_SEGMENTS:
+            segments.append({})
+        segments = segments[:MAX_SEGMENTS]
+
+        if not 1 <= index <= MAX_SEGMENTS:
+            raise HomeAssistantError(
+                f"Period must be between 1 and {MAX_SEGMENTS}, got {index}"
+            )
+
+        target = dict(segments[index - 1])
+        target.update({k: v for k, v in changes.items() if v is not None})
+        segments[index - 1] = target
+
+        await self.async_write_battery_config(segments=segments)

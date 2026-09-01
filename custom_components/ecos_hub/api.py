@@ -291,6 +291,55 @@ class EcosHubClient:
 
         _LOGGER.debug("Set control mode %s on %s with %s", mode, device_sn, body)
 
+    async def async_query_config(self, device_sn: str, module: str) -> dict[str, Any]:
+        """Read one configuration module from the device.
+
+        Unlike the metrics feed this reaches through to the inverter, so it
+        needs device-level API permissions and is slower.
+        """
+        payload = await self._request(
+            "POST",
+            f"{API_PREFIX}/devices/{device_sn}/config/query",
+            json_body={"deviceSn": device_sn, "module": module},
+        )
+        return payload.get("data") or {}
+
+    async def async_set_battery_config(self, device_sn: str, **fields: Any) -> None:
+        """Write battery settings.
+
+        Only the fields supplied are sent; omitted ones are left as they are.
+        The API expects every value as a string, including numbers, and rejects
+        nulls -- some firmware reports SOC limits as null, and echoing that back
+        fails.
+
+        These settings are PERSISTENT. There is no timeout and the inverter
+        will not revert on its own, so whatever is written stays until
+        something writes again.
+        """
+        body: dict[str, Any] = {"deviceSn": device_sn}
+
+        for key, value in fields.items():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                # segments: a list of dicts, each value stringified, nulls dropped
+                body[key] = [
+                    {k: str(v) for k, v in item.items() if v is not None}
+                    for item in value
+                ]
+            else:
+                body[key] = str(value)
+
+        if len(body) == 1:
+            raise ValueError("No settings supplied to write")
+
+        await self._request(
+            "POST",
+            f"{API_PREFIX}/devices/{device_sn}/config/battery-setting",
+            json_body=body,
+        )
+        _LOGGER.debug("Wrote battery config for %s: %s", device_sn, body)
+
     async def async_bind_vpp_devices(self, device_sns: list[str]) -> dict[str, Any]:
         """Bind devices to the VPP user behind these credentials."""
         payload = await self._request(

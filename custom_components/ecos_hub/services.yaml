@@ -68,3 +68,86 @@ set_control_mode:
           step: 60
           unit_of_measurement: s
           mode: box
+
+# Scheduled charge/discharge periods. Requires the battery mode to be
+# "scheduled"; periods are ignored in the other modes.
+set_charge_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: ecos_hub
+          multiple: true
+    period:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 12
+          step: 1
+          mode: box
+    charge_start:
+      selector:
+        time:
+    charge_end:
+      selector:
+        time:
+    charge_power:
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 100
+          unit_of_measurement: W
+          mode: box
+    charge_soc_upper:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    discharge_start:
+      selector:
+        time:
+    discharge_end:
+      selector:
+        time:
+    discharge_power:
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 100
+          unit_of_measurement: W
+          mode: box
+    discharge_soc_lower:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    curtail_pv_while_charging:
+      selector:
+        boolean:
+
+clear_charge_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: ecos_hub
+          multiple: true
+    period:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 12
+          step: 1
+          mode: box

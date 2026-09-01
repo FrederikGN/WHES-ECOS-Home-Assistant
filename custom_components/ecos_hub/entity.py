@@ -45,3 +45,18 @@ class EcosHubControlEntity(EcosHubEntity):
     def available(self) -> bool:
         """Unavailable when VPP control is not provisioned."""
         return super().available and not self.coordinator.control_forbidden
+
+
+class EcosHubConfigEntity(EcosHubEntity):
+    """Base for entities backed by the device configuration endpoints.
+
+    Device-level configuration access is a separate permission from the
+    metrics feed, so these can be unavailable while the sensors work fine.
+    """
+
+    @property
+    def available(self) -> bool:
+        """Unavailable when the configuration cannot be read."""
+        if not super().available or not self.coordinator.config_available:
+            return False
+        return bool(self.coordinator.data and self.coordinator.data.config)

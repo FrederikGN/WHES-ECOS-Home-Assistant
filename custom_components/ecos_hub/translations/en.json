@@ -142,6 +142,14 @@
           "inverter_outputs": "Inverter output setpoint",
           "inverter_operates": "Inverter operating setpoint"
         }
+      },
+      "battery_mode": {
+        "name": "Battery mode",
+        "state": {
+          "self_consumption": "Self-consumption",
+          "scheduled": "Scheduled charge/discharge",
+          "backup": "Backup"
+        }
       }
     },
     "number": {
@@ -159,6 +167,34 @@
       },
       "control_timeout": {
         "name": "Control timeout"
+      },
+      "battery_min_soc": {
+        "name": "Minimum battery level (device)"
+      },
+      "battery_eps_min_soc": {
+        "name": "Minimum backup battery level"
+      },
+      "battery_max_feedin": {
+        "name": "Maximum feed-in"
+      },
+      "protect_soc": {
+        "name": "Battery protection level"
+      },
+      "release_soc": {
+        "name": "Battery release level"
+      }
+    },
+    "switch": {
+      "discharge_to_grid": {
+        "name": "Discharge to grid"
+      }
+    },
+    "button": {
+      "protect_battery": {
+        "name": "Protect battery"
+      },
+      "release_battery": {
+        "name": "Release battery"
       }
     }
   },
@@ -209,6 +245,70 @@
         "timeout": {
           "name": "Timeout",
           "description": "The inverter reverts to normal operation after this many seconds. Acts as a dead-man's switch."
+        }
+      }
+    },
+    "set_charge_schedule": {
+      "name": "Set charge schedule",
+      "description": "Write one of the 12 scheduled charge/discharge periods. Only takes effect when the battery mode is 'Scheduled charge/discharge'.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Which ECOS Hub inverter to configure."
+        },
+        "period": {
+          "name": "Period",
+          "description": "Which of the 12 periods to write (1-12)."
+        },
+        "charge_start": {
+          "name": "Charge start",
+          "description": "When charging from the grid begins."
+        },
+        "charge_end": {
+          "name": "Charge end",
+          "description": "When charging stops."
+        },
+        "charge_power": {
+          "name": "Charge power",
+          "description": "Charging power in watts."
+        },
+        "charge_soc_upper": {
+          "name": "Charge up to",
+          "description": "Stop charging at this battery level. Older firmware may ignore this."
+        },
+        "discharge_start": {
+          "name": "Discharge start",
+          "description": "When discharging begins."
+        },
+        "discharge_end": {
+          "name": "Discharge end",
+          "description": "When discharging stops."
+        },
+        "discharge_power": {
+          "name": "Discharge power",
+          "description": "Discharging power in watts."
+        },
+        "discharge_soc_lower": {
+          "name": "Discharge down to",
+          "description": "Stop discharging at this battery level. Older firmware may ignore this."
+        },
+        "curtail_pv_while_charging": {
+          "name": "Curtail solar while charging",
+          "description": "Whether to limit solar production during the charge window."
+        }
+      }
+    },
+    "clear_charge_schedule": {
+      "name": "Clear charge schedule",
+      "description": "Zero one of the 12 scheduled periods, which disables it.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Which ECOS Hub inverter to configure."
+        },
+        "period": {
+          "name": "Period",
+          "description": "Which of the 12 periods to clear (1-12)."
         }
       }
     }
