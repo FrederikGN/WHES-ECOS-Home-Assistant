@@ -5,8 +5,10 @@ Home Assistant integration for solar and battery systems sold under the
 Open API. Developed and verified against an **Agave TH TIA103** with a 10 kWh
 battery.
 
-Sensors work out of the box. Control is implemented but requires WHES to enable
-VPP on your account — see [Control](#control) below.
+Sensors work out of the box. Battery settings — operating mode, discharge
+floor, charge windows — are writable on an account with device-level API
+permissions; see [Battery settings](#battery-settings). The separate
+[VPP control](#vpp-control) path additionally needs WHES to enable VPP.
 
 ## What you get
 
@@ -94,83 +96,76 @@ For the Energy Dashboard's individual-device section, run this through the same
 Riemann integral helper described above; there is no cumulative consumption
 counter in the API.
 
-## Control
+## Battery settings
 
-> **Requires WHES to enable VPP control on your account.** Until they do, every
-> write returns an upstream 403 and the control entities show as unavailable.
-> The sensors are unaffected.
+These write to the inverter through `/config/battery-setting` and, unlike VPP
+control, work on a normal account with device-level API permissions.
+
+> ### ⚠️ These settings are permanent, and WHES AI writes them too
 >
-> Ask them at service@whes.com:
+> There is **no timeout**. Whatever is written stays until something writes
+> again — if an automation sets a charge window and Home Assistant then dies,
+> the window remains.
 >
-> *"Please enable VPP control mode for our ECOS Hub Open API AccessKey `<key>`
-> and device `<sn>`. `PUT /open-api/ecos-hub/v1/devices/{sn}/vpp/control-mode`
-> currently returns 403 and the device reports `vpp_mode` 0."*
->
-> The `POST /vpp/bind-device` endpoint does not work around this — it answers
-> `4000 Invalid data` when the account has no VPP user to bind to.
+> If you run **WHES AI / AI Automatic Mode** in the ECOS app, it manages the
+> same settings. Expect two things: your changes may be overwritten by the AI
+> at any time, and writing settings manually *may* take the system out of AI
+> mode. After your first write, check the app to see whether AI mode is still
+> selected.
 
-### ⚠️ The battery power sign is inverted
-
-In the control API, **negative charges** the battery and **positive discharges**
-it. In the sensor feed, `bat_p` is **positive while charging**. They are
-opposite. Getting this wrong sends the battery the other way.
-
-### Entities
-
-A **Control mode** dropdown applies a mode immediately, using the staged values
-from these number entities:
-
-| Entity | Sent as |
+| Entity | Setting |
 | --- | --- |
-| Battery power setpoint | `bat_power` (negative = charge) |
-| Minimum battery level | `bat_cap_min` |
-| Maximum feed-in limit | `max_feedin_limit` |
-| PV power limit | `ppv_limit` |
-| Control timeout | `timeout` |
+| Battery mode | `chargeModeCode` — self-consumption, scheduled, or backup |
+| Minimum battery level (device) | `minBatteryCapacity` — the discharge floor |
+| Minimum backup battery level | `epsMinBatteryCapacity` |
+| Maximum feed-in | `maxFeedIn` |
+| Discharge to grid | `dischargeToGridFlag` — what the AI uses to sell stored energy |
 
-Changing a number does not talk to the inverter on its own — it is stored and
-used the next time a mode is applied, so dragging a slider does not fire a dozen
-commands at the hardware.
+These show what the inverter reports, refreshed every 10 minutes, so a change
+made in the ECOS app appears here too.
 
-The API cannot read the active mode back, so the dropdown reflects the last mode
-*this integration* applied. It shows unknown after a restart and will not notice
-changes made from the ECOS app.
+### Stopping the battery from powering your car charger
 
-### Service
+Raise the discharge floor above the current battery level and the inverter will
+not discharge, so the charger draws from the grid instead of emptying the house
+battery.
+
+- **Protect battery** sets `minBatteryCapacity` to the *Battery protection
+  level* number
+- **Release battery** sets it back to the *Battery release level* number
+
+Both levels are plain number entities, so an automation can raise the floor when
+the car starts charging and lower it when it stops. This touches one scalar and
+leaves the mode and schedule alone, which is the least likely thing to interfere
+with WHES AI.
+
+### Scheduled charge windows
+
+`ecos_hub.set_charge_schedule` writes one of the 12 periods. They only take
+effect when the battery mode is **Scheduled charge/discharge**.
 
 ```yaml
-action: ecos_hub.set_control_mode
+action: ecos_hub.set_charge_schedule
 data:
   device_id: <your inverter>
-  mode: DirectCharge
-  bat_power: -3000      # negative = charge at 3 kW
-  bat_cap_min: 20
-  timeout: 3600
+  period: 1
+  charge_start: "02:00:00"
+  charge_end: "05:00:00"
+  charge_power: 3000
 ```
 
-Anything omitted falls back to the corresponding number entity. Each mode
-requires a different set of parameters and incomplete calls are rejected locally
-before anything is sent:
+`ecos_hub.clear_charge_schedule` zeroes a period, which disables it.
 
-| Mode | Required |
-| --- | --- |
-| `SelfConsumption` | `max_feedin_limit`, `bat_cap_min` |
-| `DirectCharge` | `bat_power`, `timeout`, `bat_cap_min` |
-| `DirectDischarge` | `bat_power`, `ppv_limit`, `timeout`, `bat_cap_min` |
-| `ChargeOnly` | `max_feedin_limit`, `timeout`, `bat_cap_min` |
-| `DischargeToLoadOnly` | `max_feedin_limit`, `timeout`, `bat_cap_min` |
-| `InverterOutputs` | `bat_power`, `bat_power_inv_limit`, `timeout`, `bat_cap_min` |
-| `InverterOperates` | `bat_power`, `timeout`, `bat_cap_min` |
+Periods are positional, so writing one means sending all twelve. The current
+schedule is re-read immediately before each write so a concurrent change from
+the app is not silently reverted — though that cannot rule out a change made in
+the moment between the read and the write.
 
-### The timeout is a safety feature
+`charge_soc_upper` and `discharge_soc_lower` came back as `null` from the test
+device, so some firmware may ignore them.
 
-Every mode except `SelfConsumption` takes a `timeout`, after which the inverter
-returns to normal operation on its own. If an automation dies mid-charge or Home
-Assistant goes down, the system does not stay stuck in a forced mode. Keep it
-short enough that a mistake corrects itself and have your automation renew the
-command; the default is 15 minutes.
 
-## Control
+## VPP control
 
 > **Requires WHES to enable VPP control on your account.** Until they do, every
 > write returns an upstream 403 and the control entities show as unavailable.

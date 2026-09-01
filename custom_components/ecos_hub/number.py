@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from homeassistant.components.number import (
     NumberDeviceClass,
+    NumberEntity,
     NumberEntityDescription,
     NumberMode,
     RestoreNumber,
@@ -25,14 +26,16 @@ from .const import (
     DEFAULT_CONTROL_TIMEOUT,
     DEFAULT_MAX_FEEDIN_LIMIT,
     DEFAULT_MIN_BATTERY_CAPACITY,
+    DEFAULT_PROTECT_SOC,
     DEFAULT_PV_POWER_LIMIT,
+    DEFAULT_RELEASE_SOC,
     MAX_BATTERY_POWER,
     MAX_CONTROL_TIMEOUT,
     MIN_BATTERY_POWER,
     MIN_CONTROL_TIMEOUT,
 )
 from .coordinator import EcosHubCoordinator
-from .entity import EcosHubControlEntity
+from .entity import EcosHubConfigEntity, EcosHubControlEntity
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -109,16 +112,93 @@ NUMBERS: tuple[EcosHubNumberDescription, ...] = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class EcosHubConfigNumberDescription(NumberEntityDescription):
+    """Describes a battery setting written straight to the inverter."""
+
+    api_field: str
+
+
+CONFIG_NUMBERS: tuple[EcosHubConfigNumberDescription, ...] = (
+    EcosHubConfigNumberDescription(
+        key="battery_min_soc",
+        translation_key="battery_min_soc",
+        api_field="minBatteryCapacity",
+        native_unit_of_measurement=PERCENTAGE,
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        mode=NumberMode.SLIDER,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    EcosHubConfigNumberDescription(
+        key="battery_eps_min_soc",
+        translation_key="battery_eps_min_soc",
+        api_field="epsMinBatteryCapacity",
+        native_unit_of_measurement=PERCENTAGE,
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        mode=NumberMode.SLIDER,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    EcosHubConfigNumberDescription(
+        key="battery_max_feedin",
+        translation_key="battery_max_feedin",
+        api_field="maxFeedIn",
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        mode=NumberMode.BOX,
+        entity_category=EntityCategory.CONFIG,
+    ),
+)
+
+# Local-only values used by the protect/release buttons.
+STAGED_SOC_NUMBERS: tuple[EcosHubNumberDescription, ...] = (
+    EcosHubNumberDescription(
+        key="protect_soc",
+        translation_key="protect_soc",
+        param="protect_soc",
+        default=DEFAULT_PROTECT_SOC,
+        native_unit_of_measurement=PERCENTAGE,
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        mode=NumberMode.SLIDER,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    EcosHubNumberDescription(
+        key="release_soc",
+        translation_key="release_soc",
+        param="release_soc",
+        default=DEFAULT_RELEASE_SOC,
+        native_unit_of_measurement=PERCENTAGE,
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        mode=NumberMode.SLIDER,
+        entity_category=EntityCategory.CONFIG,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: EcosHubConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the staged control parameters."""
+    """Set up the staged control parameters and the battery settings."""
     coordinator = entry.runtime_data
-    async_add_entities(
-        EcosHubNumber(coordinator, description) for description in NUMBERS
+    entities: list[NumberEntity] = [
+        EcosHubNumber(coordinator, description)
+        for description in NUMBERS + STAGED_SOC_NUMBERS
+    ]
+    entities.extend(
+        EcosHubConfigNumber(coordinator, description)
+        for description in CONFIG_NUMBERS
     )
+    async_add_entities(entities)
 
 
 class EcosHubNumber(EcosHubControlEntity, RestoreNumber):
@@ -158,3 +238,42 @@ class EcosHubNumber(EcosHubControlEntity, RestoreNumber):
         self._attr_native_value = value
         self.coordinator.staged[self.entity_description.param] = value
         self.async_write_ha_state()
+
+
+class EcosHubConfigNumber(EcosHubConfigEntity, NumberEntity):
+    """A battery setting read from and written to the inverter.
+
+    Changing one of these writes immediately, unlike the staged VPP numbers.
+    The value shown is what the inverter reports, so a change made in the ECOS
+    app or by WHES AI appears here on the next configuration refresh.
+    """
+
+    entity_description: EcosHubConfigNumberDescription
+
+    def __init__(
+        self,
+        coordinator: EcosHubCoordinator,
+        description: EcosHubConfigNumberDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{coordinator.device_sn}_{description.key}"
+
+    @property
+    def native_value(self) -> float | None:
+        """The value the inverter reports."""
+        if not self.coordinator.data:
+            return None
+        raw = self.coordinator.data.config.get(self.entity_description.api_field)
+        if raw is None:
+            return None
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Write the new value to the inverter."""
+        await self.coordinator.async_write_battery_config(
+            **{self.entity_description.api_field: int(value)}
+        )

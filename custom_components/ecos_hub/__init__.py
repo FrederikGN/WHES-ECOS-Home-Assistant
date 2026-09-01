@@ -14,9 +14,11 @@ from .coordinator import EcosHubCoordinator
 from .services import async_register_services
 
 PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
+    Platform.SWITCH,
 ]
 
 EcosHubConfigEntry = ConfigEntry[EcosHubCoordinator]

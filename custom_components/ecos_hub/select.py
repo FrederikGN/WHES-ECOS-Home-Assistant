@@ -9,9 +9,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import EcosHubConfigEntry
-from .const import MODE_SLUGS, MODE_TO_SLUG
+from .const import (
+    BATTERY_MODE_TO_SLUG,
+    BATTERY_MODES,
+    MODE_SLUGS,
+    MODE_TO_SLUG,
+)
 from .coordinator import EcosHubCoordinator
-from .entity import EcosHubControlEntity
+from .entity import EcosHubConfigEntity, EcosHubControlEntity
 
 
 async def async_setup_entry(
@@ -19,8 +24,14 @@ async def async_setup_entry(
     entry: EcosHubConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the control mode selector."""
-    async_add_entities([EcosHubModeSelect(entry.runtime_data)])
+    """Set up the selectors."""
+    coordinator = entry.runtime_data
+    async_add_entities(
+        [
+            EcosHubModeSelect(coordinator),
+            EcosHubBatteryModeSelect(coordinator),
+        ]
+    )
 
 
 class EcosHubModeSelect(EcosHubControlEntity, SelectEntity):
@@ -53,3 +64,33 @@ class EcosHubModeSelect(EcosHubControlEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Apply the chosen mode."""
         await self.coordinator.async_set_control_mode(MODE_SLUGS[option])
+
+
+class EcosHubBatteryModeSelect(EcosHubConfigEntity, SelectEntity):
+    """The inverter's battery operating mode.
+
+    Unlike the VPP selector this reads the device's actual state back, so it
+    reflects changes made in the ECOS app too. The setting is persistent -- the
+    inverter will not revert on its own.
+    """
+
+    _attr_translation_key = "battery_mode"
+    _attr_options: ClassVar[list[str]] = list(BATTERY_MODES)
+
+    def __init__(self, coordinator: EcosHubCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.device_sn}_battery_mode"
+
+    @property
+    def current_option(self) -> str | None:
+        """The mode the inverter reports."""
+        if not self.coordinator.data:
+            return None
+        code = self.coordinator.data.config.get("chargeModeCode")
+        return BATTERY_MODE_TO_SLUG.get(str(code)) if code is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        """Write the chosen mode to the inverter."""
+        await self.coordinator.async_write_battery_config(
+            chargeModeCode=BATTERY_MODES[option]
+        )

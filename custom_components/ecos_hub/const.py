@@ -153,7 +153,43 @@ MAX_BATTERY_POWER: Final = 6000
 DEFAULT_BATTERY_POWER: Final = 0
 DEFAULT_PV_POWER_LIMIT: Final = 6000
 
+# --- Device configuration --------------------------------------------------
+#
+# POST /config/query           {deviceSn, module}  reads a module
+# POST /config/battery-setting {deviceSn, ...}     writes battery settings
+#
+# Unlike VPP control these settings are PERSISTENT -- there is no timeout and
+# the inverter will not revert on its own.
+#
+# Every value is a string in both directions, including numbers.
+CONFIG_MODULE_BATTERY: Final = "BATTERY_SETTING"
+
+# Battery operating mode (chargeModeCode).
+BATTERY_MODES: Final[dict[str, str]] = {
+    "self_consumption": "0",
+    "scheduled": "1",
+    "backup": "2",
+}
+BATTERY_MODE_TO_SLUG: Final[dict[str, str]] = {
+    v: k for k, v in BATTERY_MODES.items()
+}
+
+# The schedule holds a fixed 12 periods; a period is disabled by zeroing it.
+# Positions are meaningful, so writing one period means sending all twelve.
+MAX_SEGMENTS: Final = 12
+
+# Battery configuration is read back roughly this often. It only changes when
+# something writes it, so there is no point polling it at the metrics rate.
+CONFIG_REFRESH_SECONDS: Final = 600
+
+# "Protect battery" raises the discharge floor so the battery cannot supply the
+# house -- useful while charging a car from the grid. "Release" puts it back.
+DEFAULT_PROTECT_SOC: Final = 80
+DEFAULT_RELEASE_SOC: Final = 10
+
 SERVICE_SET_CONTROL_MODE: Final = "set_control_mode"
+SERVICE_SET_CHARGE_SCHEDULE: Final = "set_charge_schedule"
+SERVICE_CLEAR_CHARGE_SCHEDULE: Final = "clear_charge_schedule"
 
 ATTR_MODE: Final = "mode"
 ATTR_BAT_POWER: Final = "bat_power"

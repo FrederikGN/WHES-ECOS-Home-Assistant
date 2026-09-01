@@ -142,6 +142,14 @@
           "inverter_outputs": "Inverter-udgangseffekt",
           "inverter_operates": "Inverter-driftseffekt"
         }
+      },
+      "battery_mode": {
+        "name": "Batteritilstand",
+        "state": {
+          "self_consumption": "Egetforbrug",
+          "scheduled": "Planlagt op-/afladning",
+          "backup": "Backup"
+        }
       }
     },
     "number": {
@@ -159,6 +167,34 @@
       },
       "control_timeout": {
         "name": "Styrings-timeout"
+      },
+      "battery_min_soc": {
+        "name": "Minimum batteriniveau (anlæg)"
+      },
+      "battery_eps_min_soc": {
+        "name": "Minimum nødstrømsniveau"
+      },
+      "battery_max_feedin": {
+        "name": "Maksimal netudveksling (anlæg)"
+      },
+      "protect_soc": {
+        "name": "Beskyttelsesniveau"
+      },
+      "release_soc": {
+        "name": "Frigivelsesniveau"
+      }
+    },
+    "switch": {
+      "discharge_to_grid": {
+        "name": "Aflad til nettet"
+      }
+    },
+    "button": {
+      "protect_battery": {
+        "name": "Beskyt batteri"
+      },
+      "release_battery": {
+        "name": "Frigiv batteri"
       }
     }
   },
@@ -209,6 +245,70 @@
         "timeout": {
           "name": "Timeout",
           "description": "Inverteren går tilbage til normal drift efter så mange sekunder. Fungerer som dødmandsknap."
+        }
+      }
+    },
+    "set_charge_schedule": {
+      "name": "Sæt ladevindue",
+      "description": "Skriv ét af de 12 planlagte tidsrum. Virker kun når batteritilstanden er 'Planlagt op-/afladning'.",
+      "fields": {
+        "device_id": {
+          "name": "Enhed",
+          "description": "Hvilken ECOS Hub-inverter der skal konfigureres."
+        },
+        "period": {
+          "name": "Tidsrum",
+          "description": "Hvilket af de 12 tidsrum der skrives (1-12)."
+        },
+        "charge_start": {
+          "name": "Opladning start",
+          "description": "Hvornår opladning fra nettet begynder."
+        },
+        "charge_end": {
+          "name": "Opladning slut",
+          "description": "Hvornår opladningen stopper."
+        },
+        "charge_power": {
+          "name": "Ladeeffekt",
+          "description": "Ladeeffekt i watt."
+        },
+        "charge_soc_upper": {
+          "name": "Lad op til",
+          "description": "Stop opladning ved dette batteriniveau. Ældre firmware ignorerer måske feltet."
+        },
+        "discharge_start": {
+          "name": "Afladning start",
+          "description": "Hvornår afladning begynder."
+        },
+        "discharge_end": {
+          "name": "Afladning slut",
+          "description": "Hvornår afladningen stopper."
+        },
+        "discharge_power": {
+          "name": "Afladeeffekt",
+          "description": "Afladeeffekt i watt."
+        },
+        "discharge_soc_lower": {
+          "name": "Aflad ned til",
+          "description": "Stop afladning ved dette batteriniveau. Ældre firmware ignorerer måske feltet."
+        },
+        "curtail_pv_while_charging": {
+          "name": "Begræns sol under opladning",
+          "description": "Om solproduktionen skal begrænses i ladevinduet."
+        }
+      }
+    },
+    "clear_charge_schedule": {
+      "name": "Ryd ladevindue",
+      "description": "Nulstil ét af de 12 tidsrum, hvilket slår det fra.",
+      "fields": {
+        "device_id": {
+          "name": "Enhed",
+          "description": "Hvilken ECOS Hub-inverter der skal konfigureres."
+        },
+        "period": {
+          "name": "Tidsrum",
+          "description": "Hvilket af de 12 tidsrum der ryddes (1-12)."
         }
       }
     }
