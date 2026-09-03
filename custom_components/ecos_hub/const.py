@@ -164,15 +164,33 @@ DEFAULT_PV_POWER_LIMIT: Final = 6000
 # Every value is a string in both directions, including numbers.
 CONFIG_MODULE_BATTERY: Final = "BATTERY_SETTING"
 
-# Battery operating mode (chargeModeCode).
+# Operating mode (chargeModeCode). The slugs follow the wording used by the
+# ECOS app's Operating Mode screen so the two agree.
+#
+# The app offers a fourth option, "WHES AI", which is NOT in this list because
+# it is not a device setting. It is a cloud-side strategy that drives these
+# same registers from WHES' servers -- a device running WHES AI reports
+# chargeModeCode 1, indistinguishable from Time-based Control. There is no
+# documented field for it, so it can only be selected in the app.
 BATTERY_MODES: Final[dict[str, str]] = {
-    "self_consumption": "0",
-    "scheduled": "1",
-    "backup": "2",
+    "self_powered": "0",
+    "time_based": "1",
+    "back_up": "2",
 }
 BATTERY_MODE_TO_SLUG: Final[dict[str, str]] = {
     v: k for k, v in BATTERY_MODES.items()
 }
+
+# Sent back unchanged on every battery write. A partial write was observed to
+# reset the fields left out -- changing the discharge floor alone also changed
+# the operating mode -- so every write is made whole.
+PRESERVED_BATTERY_FIELDS: Final = (
+    "chargeModeCode",
+    "minBatteryCapacity",
+    "epsMinBatteryCapacity",
+    "maxFeedIn",
+    "dischargeToGridFlag",
+)
 
 # The schedule holds a fixed 12 periods; a period is disabled by zeroing it.
 # Positions are meaningful, so writing one period means sending all twelve.

@@ -144,11 +144,11 @@
         }
       },
       "battery_mode": {
-        "name": "Batteritilstand",
+        "name": "Driftstilstand (batteri)",
         "state": {
-          "self_consumption": "Egetforbrug",
-          "scheduled": "Planlagt op-/afladning",
-          "backup": "Backup"
+          "self_powered": "Self-Powered",
+          "time_based": "Time-based Control",
+          "back_up": "Back Up"
         }
       }
     },

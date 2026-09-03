@@ -38,6 +38,7 @@ from .const import (
     MAX_TOLERATED_FAILURES,
     METRIC_COLUMNS,
     METRICS_LOOKBACK,
+    PRESERVED_BATTERY_FIELDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -229,16 +230,47 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         return EcosHubData(metrics=metrics, device=device, config=config)
 
     async def async_write_battery_config(self, **fields: Any) -> None:
-        """Write battery settings and refresh so entities show the truth."""
+        """Change specific battery settings, leaving everything else alone.
+
+        The documentation says omitted fields are optional, but in practice a
+        partial write resets the fields that were left out -- changing only the
+        discharge floor was observed to also change the operating mode. So the
+        current settings are read immediately beforehand and sent back
+        unchanged, with the requested change layered on top.
+
+        That costs one extra request per write and closes a small window where
+        a concurrent change by the ECOS app could be reverted, but it is far
+        better than silently altering settings the user did not touch.
+        """
         try:
-            await self.client.async_set_battery_config(self.device_sn, **fields)
+            current = await self.client.async_query_config(
+                self.device_sn, CONFIG_MODULE_BATTERY
+            )
+        except EcosHubError as err:
+            raise HomeAssistantError(
+                f"Could not read current battery config before writing: {err}"
+            ) from err
+
+        payload: dict[str, Any] = {}
+        for key in PRESERVED_BATTERY_FIELDS:
+            if current.get(key) is not None:
+                payload[key] = current[key]
+
+        segments = current.get("segments")
+        if segments:
+            payload["segments"] = segments
+
+        payload.update(fields)
+
+        try:
+            await self.client.async_set_battery_config(self.device_sn, **payload)
         except ValueError as err:
             raise HomeAssistantError(str(err)) from err
         except EcosHubError as err:
             raise HomeAssistantError(f"Could not write battery config: {err}") from err
 
-        # Force a re-read on the next cycle rather than trusting our own write:
-        # WHES AI and the ECOS app write the same settings and may override us.
+        # Re-read rather than trusting our own write: WHES AI and the ECOS app
+        # write the same settings and may override us.
         self._config_countdown = 0
         await self.async_request_refresh()
 
@@ -247,26 +279,31 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
     ) -> None:
         """Update one scheduled period, leaving the other eleven untouched.
 
-        Periods are positional, so the whole list has to be sent every time.
-        The current list is re-read first so a concurrent change by the app or
-        by WHES AI is not silently reverted.
+        Periods are positional, so the whole list is sent every time. The write
+        path re-reads the current configuration anyway, so the list is taken
+        from there.
         """
-        config = await self.client.async_query_config(
-            self.device_sn, CONFIG_MODULE_BATTERY
-        )
-        segments = list(config.get("segments") or [])
-
-        while len(segments) < MAX_SEGMENTS:
-            segments.append({})
-        segments = segments[:MAX_SEGMENTS]
-
         if not 1 <= index <= MAX_SEGMENTS:
             raise HomeAssistantError(
                 f"Period must be between 1 and {MAX_SEGMENTS}, got {index}"
             )
 
-        target = dict(segments[index - 1])
-        target.update({k: v for k, v in changes.items() if v is not None})
-        segments[index - 1] = target
+        try:
+            current = await self.client.async_query_config(
+                self.device_sn, CONFIG_MODULE_BATTERY
+            )
+        except EcosHubError as err:
+            raise HomeAssistantError(
+                f"Could not read current schedule before writing: {err}"
+            ) from err
+
+        segments = [dict(s) for s in (current.get("segments") or [])]
+        while len(segments) < MAX_SEGMENTS:
+            segments.append({})
+        segments = segments[:MAX_SEGMENTS]
+
+        segments[index - 1].update(
+            {k: v for k, v in changes.items() if v is not None}
+        )
 
         await self.async_write_battery_config(segments=segments)

@@ -144,11 +144,11 @@
         }
       },
       "battery_mode": {
-        "name": "Battery mode",
+        "name": "Operating mode",
         "state": {
-          "self_consumption": "Self-consumption",
-          "scheduled": "Scheduled charge/discharge",
-          "backup": "Backup"
+          "self_powered": "Self-Powered",
+          "time_based": "Time-based Control",
+          "back_up": "Back Up"
         }
       }
     },
