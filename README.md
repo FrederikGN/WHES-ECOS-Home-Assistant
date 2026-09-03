@@ -115,7 +115,7 @@ control, work on a normal account with device-level API permissions.
 
 | Entity | Setting |
 | --- | --- |
-| Battery mode | `chargeModeCode` — self-consumption, scheduled, or backup |
+| Operating mode | `chargeModeCode` — Self-Powered, Time-based Control, Back Up |
 | Minimum battery level (device) | `minBatteryCapacity` — the discharge floor |
 | Minimum backup battery level | `epsMinBatteryCapacity` |
 | Maximum feed-in | `maxFeedIn` |
@@ -123,6 +123,28 @@ control, work on a normal account with device-level API permissions.
 
 These show what the inverter reports, refreshed every 10 minutes, so a change
 made in the ECOS app appears here too.
+
+### Why WHES AI is not in the mode list
+
+The ECOS app's Operating Mode screen offers four choices. Three of them are
+device settings and appear here. **WHES AI is not**: it is a cloud-side
+strategy that drives these same registers from WHES' servers. A device running
+WHES AI reports `chargeModeCode` 1, indistinguishable from Time-based Control,
+and no documented field turns it on or off.
+
+So WHES AI can only be selected in the app. Picking a mode here may well take
+the system out of it — check the app afterwards if you rely on the AI.
+
+### Writes are made whole
+
+The documentation presents every field as optional, but a partial write was
+observed to reset the fields left out: changing only the discharge floor also
+changed the operating mode. Every write therefore re-reads the current settings
+and sends them back with just the requested change layered on top.
+
+The cost is one extra request per write, and a small window in which a change
+made from the app in the same second could be reverted. That is a better
+trade than silently altering settings you did not touch.
 
 ### Stopping the battery from powering your car charger
 
