@@ -349,6 +349,17 @@ repeat them:
   with HTTP 200 for every path, which looks like success. The API gateway is
   `open-api-eu.weiheng-tech.com`.
 
+## Development
+
+The tests load the integration into a real Home Assistant core with the WHES
+API mocked, so they never touch the cloud or a battery. They run in CI on
+every push and pull request, and locally with:
+
+```bash
+python -m pip install -r requirements_test.txt
+python -m pytest
+```
+
 ## Disclaimer
 
 Not affiliated with, endorsed by or associated with WEIHENG Group, WHES,
