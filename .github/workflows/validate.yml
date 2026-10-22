@@ -7,20 +7,33 @@ on:
     - cron: "0 4 * * 1"
   workflow_dispatch:
 
+# Every job only reads the repository. Without this the token may get write
+# access, and a compromised third-party action could push to main -- which is
+# what HACS hands to everyone who installs the integration.
+permissions:
+  contents: read
+
+# Third-party actions are pinned to a full commit SHA rather than a branch or
+# tag, so the code that runs here cannot change without a commit in this repo.
+# The comment records what the SHA was when it was pinned; bump both together.
 jobs:
   hassfest:
     name: Hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: home-assistant/actions/hassfest@cd6f3635a740c84d8a14f6121a90068b8ece6bf6 # master, 2026-10-22
 
   hacs:
     name: HACS
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hacs/action@main
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa # main, 2026-10-22
         with:
           category: integration
           # "brands" checks the domain against home-assistant/brands, which
@@ -29,13 +42,16 @@ jobs:
           ignore: brands
         env:
           # The HACS action queries the GitHub API and fails without a token.
+          # It only reads, which the read-only permissions above allow.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   ruff:
     name: Ruff
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/ruff-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3.6.1
         with:
           args: check --output-format=github

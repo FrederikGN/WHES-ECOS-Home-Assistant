@@ -35,13 +35,18 @@ from .const import (
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
     MAX_SEGMENTS,
-    MAX_TOLERATED_FAILURES,
+    MAX_STALE_DATA,
     METRIC_COLUMNS,
     METRICS_LOOKBACK,
     PRESERVED_BATTERY_FIELDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _whole_seconds(delta: timedelta) -> timedelta:
+    """Drop the microseconds so log lines stay readable."""
+    return timedelta(seconds=int(delta.total_seconds()))
 
 
 @dataclass
@@ -88,10 +93,13 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         # configuration entities can mark themselves unavailable.
         self.config_available = True
 
-        # Transient upstream failures are tolerated for a while before the
-        # entities are marked unavailable.
+        # Transient upstream failures are tolerated until the newest reading is
+        # MAX_STALE_DATA old, then the entities are marked unavailable.
         self._consecutive_failures = 0
         self._base_interval = timedelta(seconds=interval)
+        # Monotonic time of the last successful metrics fetch. Only used to age
+        # the data when the API does not say when the newest sample was taken.
+        self._last_success: float | None = None
 
         # Set once the API tells us VPP control is not provisioned, so the
         # control entities can stop pretending they work.
@@ -129,15 +137,40 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         self.last_control_mode = mode
         self.async_update_listeners()
 
-    def _apply_backoff(self) -> None:
+    def _data_age(self, metrics: dict[str, Any]) -> timedelta | None:
+        """How old the newest reading in ``metrics`` is.
+
+        Taken from the sample timestamp the API returns, so a device that has
+        stopped uploading ages even while the API itself answers fine. Falls
+        back to the time of the last successful fetch when the timestamp is
+        missing, and to None when there has never been one.
+        """
+        try:
+            sample_ms = float(metrics.get("_sample_time"))
+        except (TypeError, ValueError):
+            sample_ms = None
+
+        if sample_ms is not None:
+            return timedelta(seconds=max(0.0, time.time() - sample_ms / 1000))
+        if self._last_success is not None:
+            return timedelta(seconds=time.monotonic() - self._last_success)
+        return None
+
+    def _apply_backoff(self, deadline: timedelta | None = None) -> None:
         """Slow polling down while the API is failing.
 
         Doubles the interval per consecutive failure up to the ceiling. A
         multi-hour outage at the normal interval would otherwise mean hundreds
         of pointless requests.
+
+        ``deadline`` is how long the readings currently shown may still be
+        trusted. The next poll is never scheduled later than that, so stale
+        data cannot outlive MAX_STALE_DATA just because polling slowed down.
         """
         backed_off = self._base_interval * (2**self._consecutive_failures)
         new_interval = min(backed_off, BACKOFF_MAX_INTERVAL)
+        if deadline is not None:
+            new_interval = min(new_interval, max(self._base_interval, deadline))
 
         if new_interval != self.update_interval:
             _LOGGER.debug(
@@ -164,22 +197,27 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
         except EcosHubError as err:
             # The upstream API returns transient 5000 "Internal error"
             # responses, notably around its nightly maintenance window. Riding
-            # those out keeps every entity from going unavailable over a blip.
+            # those out keeps every entity from going unavailable over a blip,
+            # but only until the readings are MAX_STALE_DATA old.
             self._consecutive_failures += 1
-            self._apply_backoff()
+            age = self._data_age(previous.metrics)
 
-            if self._consecutive_failures <= MAX_TOLERATED_FAILURES and previous.metrics:
+            if previous.metrics and age is not None and age < MAX_STALE_DATA:
+                self._apply_backoff(deadline=MAX_STALE_DATA - age)
                 _LOGGER.warning(
-                    "Could not fetch metrics (attempt %d of %d before giving up): %s",
+                    "Could not fetch metrics (attempt %d); keeping readings "
+                    "that are %s old, for at most %s: %s",
                     self._consecutive_failures,
-                    MAX_TOLERATED_FAILURES,
+                    _whole_seconds(age),
+                    MAX_STALE_DATA,
                     err,
                 )
                 return previous
 
+            self._apply_backoff()
             raise UpdateFailed(
                 f"Could not fetch metrics after {self._consecutive_failures} "
-                f"attempts: {err}"
+                f"attempt(s): {err}"
             ) from err
 
         if self._consecutive_failures:
@@ -189,11 +227,19 @@ class EcosHubCoordinator(DataUpdateCoordinator[EcosHubData]):
             )
             self._consecutive_failures = 0
             self.update_interval = self._base_interval
+        self._last_success = time.monotonic()
 
         # A device that is briefly offline returns no rows. Keep the previous
-        # readings rather than blanking every entity.
+        # readings rather than blanking every entity -- until they are too old.
         if not metrics:
             metrics = previous.metrics
+
+        age = self._data_age(metrics)
+        if age is not None and age >= MAX_STALE_DATA:
+            raise UpdateFailed(
+                f"The device has not reported for {_whole_seconds(age)}; "
+                f"readings older than {MAX_STALE_DATA} are not shown"
+            )
 
         # Device metadata (firmware, model, state) changes rarely.
         device = previous.device

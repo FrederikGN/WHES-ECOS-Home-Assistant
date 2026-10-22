@@ -313,9 +313,14 @@ If the device misses an upload the previous readings are kept rather than
 blanking every entity.
 
 The API also answers `5000 Internal error` from time to time, notably around
-its nightly maintenance window. Up to ten consecutive failures are ridden out
-on the last known readings before the entities are marked unavailable — about
-five minutes at the default interval. Authentication failures are never
+its nightly maintenance window. Those failures are ridden out on the last
+known readings too.
+
+Either way, readings are only kept until the newest sample is **10 minutes
+old**. After that every entity goes unavailable, so an automation can never
+keep acting on a state of charge that has silently stopped updating. The age
+is taken from the sample timestamp, so a device that stops uploading is caught
+even while the API itself answers fine. Authentication failures are never
 tolerated, since bad credentials will not fix themselves.
 
 Polling also backs off while the API is failing: the interval doubles per
