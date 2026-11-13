@@ -172,6 +172,10 @@ CONFIG_MODULE_BATTERY: Final = "BATTERY_SETTING"
 # same registers from WHES' servers -- a device running WHES AI reports
 # chargeModeCode 1, indistinguishable from Time-based Control. There is no
 # documented field for it, so it can only be selected in the app.
+#
+# Checked against the complete ECOS Hub documentation, English and Chinese:
+# chargeModeCode is Modbus register 41003 with exactly these three values, and
+# no module, endpoint or metric mentions the AI.
 BATTERY_MODES: Final[dict[str, str]] = {
     "self_powered": "0",
     "time_based": "1",
@@ -204,6 +208,42 @@ CONFIG_REFRESH_SECONDS: Final = 600
 # house -- useful while charging a car from the grid. "Release" puts it back.
 DEFAULT_PROTECT_SOC: Final = 80
 DEFAULT_RELEASE_SOC: Final = 10
+
+# --- Diagnostics probe -----------------------------------------------------
+#
+# The diagnostics download takes a live, read-only snapshot of everything that
+# could plausibly differ between WHES AI and plain Time-based Control. Taking
+# one in each mode and comparing the two files shows what, if anything, the
+# inverter itself knows about the AI.
+PROBE_CONFIG_MODULES: Final = (
+    CONFIG_MODULE_BATTERY,
+    "EMS_RUNTIME_DATA",
+    "WORK_MODE_PARALLEL",
+)
+
+# The register block holding the battery settings. The documented ones in it
+# are 41002 (discharge floor), 41003 (operating mode), 41008-41027 (periods 1
+# and 2), 41036 (VPP work mode), 41037 (max feed-in) and 41042 (EPS floor). The
+# gaps are undocumented, which is where an AI flag would sit if there is one.
+PROBE_REGISTER_START: Final = 41001
+PROBE_REGISTER_COUNT: Final = 60
+
+# The slave id in the documentation's own example. Unverified on real hardware.
+INVERTER_SLAVE_ID: Final = 1
+
+# The EMS control registers as the metrics feed reports them: the command
+# (48005) and power references a cloud dispatcher writes when it steers the
+# battery directly instead of through the schedule.
+PROBE_METRIC_COLUMNS: Final = [
+    "sys_power_config",
+    "sys_power_reference",
+    "sys_power_reference_inverter",
+    "bat_force_charge",
+]
+
+# Per call. These reach through to the inverter and can hang; a diagnostics
+# download should still finish.
+PROBE_TIMEOUT_SECONDS: Final = 15
 
 SERVICE_SET_CONTROL_MODE: Final = "set_control_mode"
 SERVICE_SET_CHARGE_SCHEDULE: Final = "set_charge_schedule"
