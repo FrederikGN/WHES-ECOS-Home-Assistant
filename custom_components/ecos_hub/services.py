@@ -18,27 +18,45 @@ from .const import (
     ATTR_TIMEOUT,
     CONTROL_MODES,
     DOMAIN,
+    MAX_BATTERY_POWER,
+    MAX_CONTROL_TIMEOUT,
+    MAX_SCHEDULE_POWER,
     MAX_SEGMENTS,
+    MIN_BATTERY_POWER,
+    MIN_CONTROL_TIMEOUT,
     SERVICE_CLEAR_CHARGE_SCHEDULE,
     SERVICE_SET_CHARGE_SCHEDULE,
     SERVICE_SET_CONTROL_MODE,
 )
 
+# Every numeric field is range-checked here, not just in services.yaml. The
+# selectors there only constrain the UI; calls from automations, scripts,
+# voice assistants and anything else that edits YAML go straight to this
+# schema, and an out-of-range power is exactly how a sign mistake turns into
+# the battery being driven hard the wrong way.
 SET_CONTROL_MODE_SCHEMA = vol.Schema(
     {
         vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
         vol.Required(ATTR_MODE): vol.In(CONTROL_MODES),
-        vol.Optional(ATTR_BAT_POWER): vol.Coerce(float),
+        vol.Optional(ATTR_BAT_POWER): vol.All(
+            vol.Coerce(float),
+            vol.Range(min=MIN_BATTERY_POWER, max=MAX_BATTERY_POWER),
+        ),
         vol.Optional(ATTR_BAT_CAP_MIN): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=100)
         ),
         vol.Optional(ATTR_MAX_FEEDIN_LIMIT): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=100)
         ),
-        vol.Optional(ATTR_PPV_LIMIT): vol.Coerce(float),
-        vol.Optional(ATTR_BAT_POWER_INV_LIMIT): vol.Coerce(float),
+        vol.Optional(ATTR_PPV_LIMIT): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=MAX_BATTERY_POWER)
+        ),
+        vol.Optional(ATTR_BAT_POWER_INV_LIMIT): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=MAX_BATTERY_POWER)
+        ),
         vol.Optional(ATTR_TIMEOUT): vol.All(
-            vol.Coerce(float), vol.Range(min=60, max=86400)
+            vol.Coerce(float),
+            vol.Range(min=MIN_CONTROL_TIMEOUT, max=MAX_CONTROL_TIMEOUT),
         ),
     }
 )
@@ -52,13 +70,17 @@ SET_CHARGE_SCHEDULE_SCHEMA = vol.Schema(
         ),
         vol.Optional("charge_start"): cv.time,
         vol.Optional("charge_end"): cv.time,
-        vol.Optional("charge_power"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("charge_power"): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=MAX_SCHEDULE_POWER)
+        ),
         vol.Optional("charge_soc_upper"): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=100)
         ),
         vol.Optional("discharge_start"): cv.time,
         vol.Optional("discharge_end"): cv.time,
-        vol.Optional("discharge_power"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("discharge_power"): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=MAX_SCHEDULE_POWER)
+        ),
         vol.Optional("discharge_soc_lower"): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=100)
         ),
