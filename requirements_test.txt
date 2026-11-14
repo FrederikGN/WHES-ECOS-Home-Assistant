@@ -1,0 +1,4 @@
+# Pinned so a test run is reproducible. pytest-homeassistant-custom-component
+# brings the matching Home Assistant core (0.13.316 -> 2026.2.3). Bump it to
+# test against a newer Home Assistant.
+pytest-homeassistant-custom-component==0.13.316

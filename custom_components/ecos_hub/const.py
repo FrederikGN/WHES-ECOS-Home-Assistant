@@ -47,11 +47,18 @@ DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
 # window needs to be comfortably longer than the slowest-updating field.
 METRICS_LOOKBACK: Final = timedelta(minutes=30)
 
+# How old the newest reading may get before the entities go unavailable.
+#
 # The upstream API intermittently answers 5000 "Internal error", notably around
-# its nightly maintenance window. Tolerate a run of those before declaring the
-# entities unavailable; at the default 30s interval this rides out roughly five
-# minutes of upstream trouble.
-MAX_TOLERATED_FAILURES: Final = 10
+# its nightly maintenance window, and a device can miss uploads. The last good
+# readings are kept through that so a blip does not blank every entity -- but
+# only for this long. Past it, automations must not keep acting on a state of
+# charge that has silently stopped updating.
+#
+# This is measured as the age of the newest sample, not as a count of failed
+# attempts: with backoff, ten attempts stretch to well over an hour, and a
+# device that stops uploading never produces a failed attempt at all.
+MAX_STALE_DATA: Final = timedelta(minutes=10)
 
 # Once the API is clearly down, back off instead of hammering it. The interval
 # doubles per failure up to this ceiling, then resets on the first success.
@@ -152,6 +159,11 @@ MIN_BATTERY_POWER: Final = -6000
 MAX_BATTERY_POWER: Final = 6000
 DEFAULT_BATTERY_POWER: Final = 0
 DEFAULT_PV_POWER_LIMIT: Final = 6000
+
+# Ceiling for the charge/discharge power of a scheduled period, matching the
+# service UI. The service schema enforces the same limits as the UI, because
+# calls from automations, scripts and voice assistants never see the UI.
+MAX_SCHEDULE_POWER: Final = 10000
 
 # --- Device configuration --------------------------------------------------
 #
