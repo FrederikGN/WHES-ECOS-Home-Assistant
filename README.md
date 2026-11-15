@@ -135,6 +135,35 @@ and no documented field turns it on or off.
 So WHES AI can only be selected in the app. Picking a mode here may well take
 the system out of it — check the app afterwards if you rely on the AI.
 
+This was checked against the complete ECOS Hub documentation, English and
+Chinese. `chargeModeCode` is Modbus register 41003 and takes exactly the three
+values above; no configuration module, endpoint or metric mentions the AI. WHES
+does document AI strategy fields in its Open API, but only for WHES OS, the
+commercial platform, not for ECOS Hub devices.
+
+#### Finding out what the AI does to the inverter
+
+**Download diagnostics** on the integration takes a live, read-only snapshot
+under `probe`:
+
+| Key | What it reads |
+| --- | --- |
+| `BATTERY_SETTING` | Mode, floors and all 12 periods, fresh |
+| `EMS_RUNTIME_DATA` | EMS control command and power reference |
+| `WORK_MODE_PARALLEL` | VPP work mode |
+| `registers` | Raw holding registers 41001–41060, documented or not |
+| `ems_metrics` | The EMS control registers as the metrics feed reports them |
+
+Take one download with WHES AI selected in the app and one with Time-based
+Control, a few minutes after each switch, and compare the two `probe` blocks. If
+only the periods differ, the AI is a schedule WHES writes from its cloud and the
+inverter has no idea it is there. If a register or field flips with it, that is
+the switch.
+
+Each read needs its own permission, so some may come back as an `error`; that
+is worth knowing too. Serial numbers, coordinates and credentials are redacted
+from the download.
+
 ### Writes are made whole
 
 The documentation presents every field as optional, but a partial write was

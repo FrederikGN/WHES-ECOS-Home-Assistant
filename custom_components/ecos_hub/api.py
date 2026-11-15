@@ -304,6 +304,33 @@ class EcosHubClient:
         )
         return payload.get("data") or {}
 
+    async def async_read_registers(
+        self, device_sn: str, start_address: int, length: int, slave_id: int
+    ) -> list[int]:
+        """Read raw holding registers through the Modbus passthrough.
+
+        Only the Chinese edition of the documentation describes this endpoint.
+        Addresses are the "Point" numbers the configuration pages quote, so
+        41003 is the operating mode.
+
+        This only ever reads (function code 3). The matching write endpoint is
+        deliberately not wrapped: it would bypass every check the configuration
+        endpoints apply.
+        """
+        payload = await self._request(
+            "POST",
+            f"{API_PREFIX}/devices/{device_sn}/read",
+            json_body={
+                "deviceSn": device_sn,
+                "slaveId": slave_id,
+                "startAddress": start_address,
+                "len": length,
+                "funcCode": 3,
+            },
+        )
+        data = payload.get("data")
+        return data if isinstance(data, list) else []
+
     async def async_set_battery_config(self, device_sn: str, **fields: Any) -> None:
         """Write battery settings.
 
