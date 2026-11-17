@@ -29,6 +29,8 @@ from custom_components.ecos_hub.coordinator import EcosHubCoordinator, EcosHubDa
 from custom_components.ecos_hub.diagnostics import async_get_config_entry_diagnostics
 
 SN = "TESTSN0001"
+# A different component's serial, which the API returns among the metrics.
+GATEWAY_SN = "TESTGW0001"
 ACCESS_KEY = "test-access-key"
 ACCESS_SECRET = "test-access-secret"
 
@@ -41,7 +43,10 @@ def _client() -> AsyncMock:
         "segments": [{"chargePower": "3000"}],
     }
     client.async_read_registers.return_value = list(range(PROBE_REGISTER_COUNT))
-    client.async_get_latest_metrics.return_value = {"sys_power_config": 3}
+    client.async_get_latest_metrics.return_value = {
+        "sys_power_config": 3,
+        "gateway_sn": GATEWAY_SN,
+    }
     return client
 
 
@@ -59,7 +64,7 @@ def _entry(hass: HomeAssistant, client: AsyncMock) -> MockConfigEntry:
     entry.add_to_hass(hass)
     coordinator = EcosHubCoordinator(hass, entry, client, SN)
     coordinator.data = EcosHubData(
-        metrics={"bat_soc": 55, "serial": SN},
+        metrics={"bat_soc": 55, "serial": SN, "gateway_sn": GATEWAY_SN},
         device={
             "device_sn": SN,
             # The API defaults the name to the serial.
@@ -94,7 +99,7 @@ async def test_probe_reads_everything_in_order(hass: HomeAssistant) -> None:
     assert len(probe["registers"]) == PROBE_REGISTER_COUNT
     assert probe["registers"]["41003"] == 2
 
-    assert probe["ems_metrics"] == {"sys_power_config": 3}
+    assert probe["ems_metrics"]["sys_power_config"] == 3
     assert result["config"]["chargeModeCode"] == "1"
 
 
@@ -111,7 +116,7 @@ async def test_probe_never_writes(hass: HomeAssistant) -> None:
 async def test_nothing_identifying_is_left_in_the_download(
     hass: HomeAssistant,
 ) -> None:
-    """Serial, credentials, alias and coordinates are all gone."""
+    """Serials, credentials, alias and coordinates are all gone."""
     client = _client()
     # An error that quotes the request path, serial included.
     client.async_get_latest_metrics.side_effect = EcosHubConnectionError(
@@ -122,6 +127,7 @@ async def test_nothing_identifying_is_left_in_the_download(
     text = json.dumps(result)
 
     assert SN not in text
+    assert GATEWAY_SN not in text
     assert ACCESS_KEY not in text
     assert ACCESS_SECRET not in text
     assert "Home battery" not in text
@@ -155,7 +161,7 @@ async def test_refused_and_hung_calls_do_not_fail_the_download(
     assert probe["WORK_MODE_PARALLEL"] == {"error": "TimeoutError"}
     # The calls after the failures still ran.
     assert len(probe["registers"]) == PROBE_REGISTER_COUNT
-    assert probe["ems_metrics"] == {"sys_power_config": 3}
+    assert probe["ems_metrics"]["sys_power_config"] == 3
 
 
 async def test_read_registers_only_ever_reads() -> None:
